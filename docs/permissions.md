@@ -27,8 +27,6 @@ Default app roles granted:
 - `DeviceManagementConfiguration.Read.All`
 - `DeviceManagementApps.Read.All`
 - `DeviceManagementServiceConfig.Read.All`
-- `DeviceManagementRBAC.Read.All`
-- `Group.Read.All`
 
 Required admin consent scopes for this script session:
 

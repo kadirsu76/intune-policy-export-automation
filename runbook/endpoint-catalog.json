@@ -40,42 +40,11 @@
     "assignmentPathTemplate": "/deviceManagement/intents/{id}/assignments"
   },
   {
-    "id": "templates",
+    "id": "reusablePolicySettings",
     "area": "EndpointSecurity",
-    "subcategory": "Templates",
+    "subcategory": "ReusableSettings",
     "apiVersion": "beta",
-    "path": "/deviceManagement/templates"
-  },
-  {
-    "id": "deviceManagementScripts",
-    "area": "Scripts",
-    "subcategory": "WindowsPowerShellScripts",
-    "apiVersion": "beta",
-    "path": "/deviceManagement/deviceManagementScripts",
-    "assignmentPathTemplate": "/deviceManagement/deviceManagementScripts/{id}/assignments"
-  },
-  {
-    "id": "deviceShellScripts",
-    "area": "Scripts",
-    "subcategory": "macOSShellScripts",
-    "apiVersion": "beta",
-    "path": "/deviceManagement/deviceShellScripts",
-    "assignmentPathTemplate": "/deviceManagement/deviceShellScripts/{id}/assignments"
-  },
-  {
-    "id": "deviceCustomAttributeShellScripts",
-    "area": "Scripts",
-    "subcategory": "CustomAttributeScripts",
-    "apiVersion": "beta",
-    "path": "/deviceManagement/deviceCustomAttributeShellScripts"
-  },
-  {
-    "id": "deviceHealthScripts",
-    "area": "Scripts",
-    "subcategory": "ProactiveRemediations",
-    "apiVersion": "beta",
-    "path": "/deviceManagement/deviceHealthScripts",
-    "assignmentPathTemplate": "/deviceManagement/deviceHealthScripts/{id}/assignments"
+    "path": "/deviceManagement/reusablePolicySettings"
   },
   {
     "id": "windowsFeatureUpdateProfiles",
@@ -118,77 +87,6 @@
     "assignmentPathTemplate": "/deviceManagement/windowsAutopilotDeploymentProfiles/{id}/assignments"
   },
   {
-    "id": "deviceEnrollmentNotificationsConfiguration",
-    "area": "Enrollment",
-    "subcategory": "EnrollmentNotifications",
-    "apiVersion": "beta",
-    "path": "/deviceManagement/deviceEnrollmentNotificationsConfiguration"
-  },
-  {
-    "id": "deviceCategories",
-    "area": "Tenant",
-    "subcategory": "DeviceCategories",
-    "apiVersion": "beta",
-    "path": "/deviceManagement/deviceCategories"
-  },
-  {
-    "id": "assignmentFilters",
-    "area": "Tenant",
-    "subcategory": "AssignmentFilters",
-    "apiVersion": "beta",
-    "path": "/deviceManagement/assignmentFilters"
-  },
-  {
-    "id": "roleDefinitions",
-    "area": "Tenant",
-    "subcategory": "RBACRoleDefinitions",
-    "apiVersion": "beta",
-    "path": "/deviceManagement/roleDefinitions"
-  },
-  {
-    "id": "roleAssignments",
-    "area": "Tenant",
-    "subcategory": "RBACRoleAssignments",
-    "apiVersion": "beta",
-    "path": "/deviceManagement/roleAssignments"
-  },
-  {
-    "id": "scopeTags",
-    "area": "Tenant",
-    "subcategory": "ScopeTags",
-    "apiVersion": "beta",
-    "path": "/deviceManagement/roleScopeTags"
-  },
-  {
-    "id": "notificationMessageTemplates",
-    "area": "Tenant",
-    "subcategory": "NotificationTemplates",
-    "apiVersion": "beta",
-    "path": "/deviceManagement/notificationMessageTemplates"
-  },
-  {
-    "id": "termsAndConditions",
-    "area": "Tenant",
-    "subcategory": "TermsAndConditions",
-    "apiVersion": "beta",
-    "path": "/deviceManagement/termsAndConditions"
-  },
-  {
-    "id": "complianceManagementPartners",
-    "area": "Tenant",
-    "subcategory": "CompliancePartners",
-    "apiVersion": "beta",
-    "path": "/deviceManagement/complianceManagementPartners"
-  },
-  {
-    "id": "mobileApps",
-    "area": "Applications",
-    "subcategory": "MobileApps",
-    "apiVersion": "beta",
-    "path": "/deviceAppManagement/mobileApps",
-    "assignmentPathTemplate": "/deviceAppManagement/mobileApps/{id}/assignments"
-  },
-  {
     "id": "mobileAppConfigurations",
     "area": "Applications",
     "subcategory": "AppConfigurations",
@@ -219,13 +117,6 @@
     "apiVersion": "beta",
     "path": "/deviceAppManagement/iosManagedAppProtections",
     "assignmentPathTemplate": "/deviceAppManagement/iosManagedAppProtections/{id}/assignments"
-  },
-  {
-    "id": "managedAppPolicies",
-    "area": "Applications",
-    "subcategory": "ManagedAppPolicies",
-    "apiVersion": "beta",
-    "path": "/deviceAppManagement/managedAppPolicies"
   },
   {
     "id": "mdmWindowsInformationProtectionPolicies",

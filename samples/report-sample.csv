@@ -1,2 +1,2 @@
-ExportTimestampUtc,TenantId,RunId,Category,Subcategory,PlatformFolder,Name,Id,ApiVersion,EndpointPath,SettingCount,AssignmentCount,CreatedDateTime,LastModifiedDateTime,FilePath,Status,ErrorMessage
-2026-09-11T00:00:00.0000000Z,11111111-1111-1111-1111-111111111111,22222222-2222-2222-2222-222222222222,DeviceConfiguration,SettingsCatalog,Windows,Win11 Baseline,aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,beta,/deviceManagement/configurationPolicies?$expand=settings,37,2,2026-09-01T08:00:00Z,2026-09-10T16:45:00Z,daily/2026/09/11/20260911T030000Z-22222222-2222-2222-2222-222222222222/Windows/DeviceConfiguration/SettingsCatalog/Win11 Baseline--aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa.json,Exported,
+Area,Subcategory,EndpointId,PlatformFolder,Name,Id,AssignmentCount,FilePath
+DeviceConfiguration,SettingsCatalog,settingsCatalog,Windows,Win11 Baseline,aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,2,Windows/DeviceConfiguration/SettingsCatalog/Win11 Baseline--aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa.json

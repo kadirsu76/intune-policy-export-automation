@@ -22,8 +22,8 @@ It defines endpoint metadata used by runbook:
 - Updates
 - Enrollment
 - Applications
-- Scripts
-- Tenant
+
+Current endpoint count: 16.
 
 ## Assignment coverage
 
@@ -31,7 +31,7 @@ When assignment endpoint exists, runbook records:
 
 - Assignment ID
 - Target type
-- Group ID and display name (resolved)
+- Group ID
 - Include/Exclude state
 - Assignment filter ID/type
 
@@ -46,4 +46,3 @@ Runbook writes policies under platform roots:
 - `Android`
 - `MultiPlatform`
 - `Unknown`
-- `Tenant`

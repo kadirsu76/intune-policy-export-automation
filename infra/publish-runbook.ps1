@@ -12,11 +12,31 @@ $apiVersion = $env:AUTOMATION_API_VERSION
 $runbookContentBase64 = $env:RUNBOOK_CONTENT_B64
 $runbookContent = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($runbookContentBase64))
 
+function Assert-RequiredValue {
+    param(
+        [Parameter(Mandatory = $true)][string]$Name,
+        [Parameter(Mandatory = $false)][string]$Value
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Value)) {
+        throw "Required value is empty: $Name"
+    }
+
+    return $Value.Trim()
+}
+
+$subscriptionId = Assert-RequiredValue -Name 'subscriptionId' -Value $subscriptionId
+$resourceGroupName = Assert-RequiredValue -Name 'RG_NAME' -Value $resourceGroupName
+$automationAccountName = Assert-RequiredValue -Name 'AA_NAME' -Value $automationAccountName
+$runbookName = Assert-RequiredValue -Name 'RUNBOOK_NAME' -Value $runbookName
+$apiVersion = Assert-RequiredValue -Name 'AUTOMATION_API_VERSION' -Value $apiVersion
+
 if ([string]::IsNullOrWhiteSpace($runbookContent)) {
     throw 'RUNBOOK_CONTENT_B64 resolved to empty content. Cannot continue.'
 }
 
-$baseUrl = "https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$resourceGroupName/providers/Microsoft.Automation/automationAccounts/$automationAccountName/runbooks/$runbookName"
+$baseUrl = [System.UriBuilder]::new('https://management.azure.com').Uri.AbsoluteUri.TrimEnd('/') +
+    "/subscriptions/$([Uri]::EscapeDataString($subscriptionId))/resourceGroups/$([Uri]::EscapeDataString($resourceGroupName))/providers/Microsoft.Automation/automationAccounts/$([Uri]::EscapeDataString($automationAccountName))/runbooks/$([Uri]::EscapeDataString($runbookName))"
 
 function Get-PlainTextToken {
     param(
@@ -69,17 +89,17 @@ function Invoke-WithRetry {
 }
 
 Invoke-WithRetry -ScriptBlock {
-    Invoke-RestMethod -Method Put -Uri "$baseUrl/draft/content?api-version=$apiVersion" -Headers $replaceHeaders -Body $runbookContent | Out-Null
+    Invoke-RestMethod -Method Put -Uri "${baseUrl}/draft/content?api-version=${apiVersion}" -Headers $replaceHeaders -Body $runbookContent | Out-Null
 } | Out-Null
 
 Invoke-WithRetry -ScriptBlock {
-    Invoke-RestMethod -Method Post -Uri "$baseUrl/publish?api-version=$apiVersion" -Headers @{ Authorization = "Bearer $token" } | Out-Null
+    Invoke-RestMethod -Method Post -Uri "${baseUrl}/publish?api-version=${apiVersion}" -Headers @{ Authorization = "Bearer $token" } | Out-Null
 } | Out-Null
 
 $published = $false
 for ($i = 0; $i -lt 60; $i++) {
     Start-Sleep -Seconds 5
-    $state = Invoke-RestMethod -Method Get -Uri "$baseUrl?api-version=$apiVersion" -Headers @{ Authorization = "Bearer $token" }
+    $state = Invoke-RestMethod -Method Get -Uri "${baseUrl}?api-version=${apiVersion}" -Headers @{ Authorization = "Bearer $token" }
     if ($state.properties.state -eq 'Published') {
         $published = $true
         break

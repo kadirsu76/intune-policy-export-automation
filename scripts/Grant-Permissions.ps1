@@ -7,9 +7,7 @@ param(
     [string[]]$GraphAppPermissions = @(
         'DeviceManagementConfiguration.Read.All',
         'DeviceManagementApps.Read.All',
-        'DeviceManagementServiceConfig.Read.All',
-        'DeviceManagementRBAC.Read.All',
-        'Group.Read.All'
+        'DeviceManagementServiceConfig.Read.All'
     )
 )
 

@@ -29,7 +29,7 @@ function Write-Log {
     )
 
     $stamp = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
-    Write-Output "[$stamp][$Level] $Message"
+    Write-Host "[$stamp][$Level] $Message"
 }
 
 function Get-EmbeddedCatalog {
@@ -76,42 +76,11 @@ function Get-EmbeddedCatalog {
     "assignmentPathTemplate": "/deviceManagement/intents/{id}/assignments"
   },
   {
-    "id": "templates",
+    "id": "reusablePolicySettings",
     "area": "EndpointSecurity",
-    "subcategory": "Templates",
+    "subcategory": "ReusableSettings",
     "apiVersion": "beta",
-    "path": "/deviceManagement/templates"
-  },
-  {
-    "id": "deviceManagementScripts",
-    "area": "Scripts",
-    "subcategory": "WindowsPowerShellScripts",
-    "apiVersion": "beta",
-    "path": "/deviceManagement/deviceManagementScripts",
-    "assignmentPathTemplate": "/deviceManagement/deviceManagementScripts/{id}/assignments"
-  },
-  {
-    "id": "deviceShellScripts",
-    "area": "Scripts",
-    "subcategory": "macOSShellScripts",
-    "apiVersion": "beta",
-    "path": "/deviceManagement/deviceShellScripts",
-    "assignmentPathTemplate": "/deviceManagement/deviceShellScripts/{id}/assignments"
-  },
-  {
-    "id": "deviceCustomAttributeShellScripts",
-    "area": "Scripts",
-    "subcategory": "CustomAttributeScripts",
-    "apiVersion": "beta",
-    "path": "/deviceManagement/deviceCustomAttributeShellScripts"
-  },
-  {
-    "id": "deviceHealthScripts",
-    "area": "Scripts",
-    "subcategory": "ProactiveRemediations",
-    "apiVersion": "beta",
-    "path": "/deviceManagement/deviceHealthScripts",
-    "assignmentPathTemplate": "/deviceManagement/deviceHealthScripts/{id}/assignments"
+    "path": "/deviceManagement/reusablePolicySettings"
   },
   {
     "id": "windowsFeatureUpdateProfiles",
@@ -154,77 +123,6 @@ function Get-EmbeddedCatalog {
     "assignmentPathTemplate": "/deviceManagement/windowsAutopilotDeploymentProfiles/{id}/assignments"
   },
   {
-    "id": "deviceEnrollmentNotificationsConfiguration",
-    "area": "Enrollment",
-    "subcategory": "EnrollmentNotifications",
-    "apiVersion": "beta",
-    "path": "/deviceManagement/deviceEnrollmentNotificationsConfiguration"
-  },
-  {
-    "id": "deviceCategories",
-    "area": "Tenant",
-    "subcategory": "DeviceCategories",
-    "apiVersion": "beta",
-    "path": "/deviceManagement/deviceCategories"
-  },
-  {
-    "id": "assignmentFilters",
-    "area": "Tenant",
-    "subcategory": "AssignmentFilters",
-    "apiVersion": "beta",
-    "path": "/deviceManagement/assignmentFilters"
-  },
-  {
-    "id": "roleDefinitions",
-    "area": "Tenant",
-    "subcategory": "RBACRoleDefinitions",
-    "apiVersion": "beta",
-    "path": "/deviceManagement/roleDefinitions"
-  },
-  {
-    "id": "roleAssignments",
-    "area": "Tenant",
-    "subcategory": "RBACRoleAssignments",
-    "apiVersion": "beta",
-    "path": "/deviceManagement/roleAssignments"
-  },
-  {
-    "id": "scopeTags",
-    "area": "Tenant",
-    "subcategory": "ScopeTags",
-    "apiVersion": "beta",
-    "path": "/deviceManagement/roleScopeTags"
-  },
-  {
-    "id": "notificationMessageTemplates",
-    "area": "Tenant",
-    "subcategory": "NotificationTemplates",
-    "apiVersion": "beta",
-    "path": "/deviceManagement/notificationMessageTemplates"
-  },
-  {
-    "id": "termsAndConditions",
-    "area": "Tenant",
-    "subcategory": "TermsAndConditions",
-    "apiVersion": "beta",
-    "path": "/deviceManagement/termsAndConditions"
-  },
-  {
-    "id": "complianceManagementPartners",
-    "area": "Tenant",
-    "subcategory": "CompliancePartners",
-    "apiVersion": "beta",
-    "path": "/deviceManagement/complianceManagementPartners"
-  },
-  {
-    "id": "mobileApps",
-    "area": "Applications",
-    "subcategory": "MobileApps",
-    "apiVersion": "beta",
-    "path": "/deviceAppManagement/mobileApps",
-    "assignmentPathTemplate": "/deviceAppManagement/mobileApps/{id}/assignments"
-  },
-  {
     "id": "mobileAppConfigurations",
     "area": "Applications",
     "subcategory": "AppConfigurations",
@@ -257,13 +155,6 @@ function Get-EmbeddedCatalog {
     "assignmentPathTemplate": "/deviceAppManagement/iosManagedAppProtections/{id}/assignments"
   },
   {
-    "id": "managedAppPolicies",
-    "area": "Applications",
-    "subcategory": "ManagedAppPolicies",
-    "apiVersion": "beta",
-    "path": "/deviceAppManagement/managedAppPolicies"
-  },
-  {
     "id": "mdmWindowsInformationProtectionPolicies",
     "area": "Applications",
     "subcategory": "WindowsInformationProtection",
@@ -277,108 +168,143 @@ function Get-EmbeddedCatalog {
     return $json | ConvertFrom-Json
 }
 
-function Get-SafeName {
-    param([string]$Name)
-
-    $value = if ([string]::IsNullOrWhiteSpace($Name)) { "Unnamed" } else { $Name.Trim() }
-    $value = $value -replace '[\\/:*?"<>|]', "_"
-    $value = $value -replace '\s+', " "
-    if ($value.Length -gt 100) {
-        $value = $value.Substring(0, 100)
-    }
-    return $value.Trim()
-}
-
-function Resolve-ItemName {
-    param([object]$Item)
-
-    foreach ($key in @("name", "displayName", "title")) {
-        $value = Get-PropertyIfExists -Item $Item -PropertyName $key
-        if ($null -ne $value -and -not [string]::IsNullOrWhiteSpace([string]$value)) {
-            return [string]$value
-        }
-    }
-
-    $itemId = Get-PropertyIfExists -Item $Item -PropertyName "id"
-    if ($null -ne $itemId) {
-        return [string]$itemId
-    }
-
-    return "Unnamed"
-}
-
-function Get-PropertyIfExists {
+function Get-ObjectValue {
     param(
-        [object]$Item,
-        [string]$PropertyName
+        [Parameter(Mandatory = $false)][object]$Object,
+        [Parameter(Mandatory = $true)][string]$PropertyName
     )
 
-    if ($null -eq $Item) {
+    if ($null -eq $Object) {
         return $null
     }
 
-    if ($Item.PSObject.Properties.Name -contains $PropertyName) {
-        return $Item.$PropertyName
+    if ($Object -is [System.Collections.IDictionary]) {
+        foreach ($key in $Object.Keys) {
+            if ([string]::Equals([string]$key, $PropertyName, [System.StringComparison]::OrdinalIgnoreCase)) {
+                return $Object[$key]
+            }
+        }
+        return $null
+    }
+
+    $prop = $Object.PSObject.Properties.Match($PropertyName) | Select-Object -First 1
+    if ($null -ne $prop) {
+        return $prop.Value
     }
 
     return $null
 }
 
-function Resolve-PlatformFolder {
+function Test-ObjectProperty {
     param(
-        [string]$Area,
-        [object]$Item
+        [Parameter(Mandatory = $false)][object]$Object,
+        [Parameter(Mandatory = $true)][string]$PropertyName
     )
 
-    if ($Area -eq "Tenant") {
-        return "Tenant"
+    if ($null -eq $Object) {
+        return $false
     }
 
-    $sources = [System.Collections.Generic.List[string]]::new()
-
-    $platforms = Get-PropertyIfExists -Item $Item -PropertyName "platforms"
-    if ($platforms -is [System.Array]) {
-        foreach ($p in $platforms) {
-            if ($null -ne $p) {
-                $sources.Add([string]$p)
+    if ($Object -is [System.Collections.IDictionary]) {
+        foreach ($key in $Object.Keys) {
+            if ([string]::Equals([string]$key, $PropertyName, [System.StringComparison]::OrdinalIgnoreCase)) {
+                return $true
             }
         }
-    }
-    elseif ($null -ne $platforms) {
-        $sources.Add([string]$platforms)
+        return $false
     }
 
-    foreach ($propertyName in @("platform", "platformType", "devicePlatform", "osPlatform", "operatingSystem")) {
-        $value = Get-PropertyIfExists -Item $Item -PropertyName $propertyName
-        if ($null -ne $value) {
-            $sources.Add([string]$value)
+    return (($Object.PSObject.Properties.Match($PropertyName) | Measure-Object).Count -gt 0)
+}
+
+function Convert-ToOrderedMap {
+    param([Parameter(Mandatory = $false)][object]$Object)
+
+    $map = [ordered]@{}
+    if ($null -eq $Object) {
+        return $map
+    }
+
+    if ($Object -is [System.Collections.IDictionary]) {
+        foreach ($key in $Object.Keys) {
+            $map[[string]$key] = $Object[$key]
+        }
+        return $map
+    }
+
+    foreach ($prop in $Object.PSObject.Properties) {
+        $map[$prop.Name] = $prop.Value
+    }
+
+    return $map
+}
+
+function Convert-ToSingleString {
+    param([Parameter(Mandatory = $false)][object]$Value)
+
+    if ($null -eq $Value) {
+        return ""
+    }
+
+    if ($Value -is [string]) {
+        return $Value
+    }
+
+    if ($Value -is [System.Collections.IEnumerable] -and -not ($Value -is [string])) {
+        foreach ($entry in $Value) {
+            $text = [string]$entry
+            if (-not [string]::IsNullOrWhiteSpace($text)) {
+                return $text
+            }
+        }
+        return ""
+    }
+
+    return [string]$Value
+}
+
+function Get-NextLink {
+    param([Parameter(Mandatory = $true)][object]$Response)
+
+    $next = Get-ObjectValue -Object $Response -PropertyName '@odata.nextLink'
+    if (-not [string]::IsNullOrWhiteSpace([string]$next)) {
+        return [string]$next
+    }
+
+    $next = Get-ObjectValue -Object $Response -PropertyName 'odata.nextLink'
+    if (-not [string]::IsNullOrWhiteSpace([string]$next)) {
+        return [string]$next
+    }
+
+    return $null
+}
+
+function Get-SafeName {
+    param([string]$Name)
+
+    if ([string]::IsNullOrWhiteSpace($Name)) {
+        $Name = "Unnamed"
+    }
+
+    $safe = $Name -replace '[\\/:*?"<>|]', '_'
+    if ($safe.Length -gt 80) {
+        $safe = $safe.Substring(0, 80)
+    }
+
+    return $safe.Trim().TrimEnd('.')
+}
+
+function Resolve-ItemName {
+    param([object]$Item)
+
+    foreach ($nameProp in @("name", "displayName", "title", "id")) {
+        $value = [string](Get-ObjectValue -Object $Item -PropertyName $nameProp)
+        if (-not [string]::IsNullOrWhiteSpace($value)) {
+            return $value
         }
     }
 
-    $odataType = Get-PropertyIfExists -Item $Item -PropertyName "@odata.type"
-    if ($null -ne $odataType) {
-        $sources.Add([string]$odataType)
-    }
-
-    $normalized = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
-    foreach ($entry in $sources) {
-        $text = ([string]$entry).ToLowerInvariant()
-        if ($text.Contains("windows")) { [void]$normalized.Add("Windows") }
-        if ($text.Contains("linux")) { [void]$normalized.Add("Linux") }
-        if ($text.Contains("mac") -or $text.Contains("osx")) { [void]$normalized.Add("macOS") }
-        if ($text.Contains("ios") -or $text.Contains("ipad")) { [void]$normalized.Add("iOS-iPadOS") }
-        if ($text.Contains("android")) { [void]$normalized.Add("Android") }
-    }
-
-    if ($normalized.Count -eq 0) {
-        return "Unknown"
-    }
-
-    if ($normalized.Count -gt 1) {
-        return "MultiPlatform"
-    }
-
-    return ($normalized | Select-Object -First 1)
+    return "Unnamed"
 }
 
 function Resolve-StatusCode {
@@ -390,10 +316,9 @@ function Resolve-StatusCode {
         }
     }
     catch {
-        return $null
     }
 
-    return $null
+    return 0
 }
 
 function Resolve-RetryAfterSeconds {
@@ -405,14 +330,24 @@ function Resolve-RetryAfterSeconds {
             return 0
         }
 
-        $retryAfter = $headers["Retry-After"]
-        if ($null -eq $retryAfter) {
+        if ($headers -is [System.Collections.IDictionary]) {
+            if ($headers.Contains('Retry-After')) {
+                $v = $headers['Retry-After']
+                if ([string]$v -match '^\d+$') {
+                    return [int]$v
+                }
+            }
             return 0
         }
 
-        $candidate = $retryAfter | Select-Object -First 1
-        if ($candidate -match "^\d+$") {
-            return [int]$candidate
+        if ($headers.PSObject.Methods.Name -contains 'TryGetValues') {
+            $values = $null
+            if ($headers.TryGetValues('Retry-After', [ref]$values)) {
+                $candidate = @($values) | Select-Object -First 1
+                if ([string]$candidate -match '^\d+$') {
+                    return [int]$candidate
+                }
+            }
         }
     }
     catch {
@@ -480,128 +415,363 @@ function Invoke-GraphGet {
 
             $retryAfter = Resolve-RetryAfterSeconds -ErrorRecord $_
             if ($retryAfter -le 0) {
-                $retryAfter = [math]::Min(120, $RetryBaseDelaySeconds * [math]::Pow(2, $attempt - 1))
+                $retryAfter = [math]::Min(120, [int]($RetryBaseDelaySeconds * [math]::Pow(2, $attempt - 1)))
             }
 
-            Write-Log -Message "Graph retry $attempt/$MaxRetries for $Uri (status $statusCode). Waiting $retryAfter seconds." -Level "WARN"
+            Write-Log -Message "Retry $attempt/$MaxRetries for $Uri (status $statusCode), waiting $retryAfter seconds" -Level "WARN"
             Start-Sleep -Seconds $retryAfter
         }
     }
+
+    throw "Unexpected Graph retry loop end for $Uri"
 }
 
 function Get-GraphCollection {
-    param(
-        [Parameter(Mandatory = $true)][string]$ApiVersion,
-        [Parameter(Mandatory = $true)][string]$Path,
-        [Parameter(Mandatory = $false)][switch]$AllowNotFound
-    )
+    param([Parameter(Mandatory = $true)][string]$Uri)
 
-    $items = [System.Collections.Generic.List[object]]::new()
-    $nextUri = "https://graph.microsoft.com/$ApiVersion$Path"
+    $results = @()
+    $next = $Uri
 
-    while (-not [string]::IsNullOrWhiteSpace($nextUri)) {
-        $response = Invoke-GraphGet -Uri $nextUri -AllowNotFound:$AllowNotFound.IsPresent
-        if ($null -eq $response) {
-            break
-        }
+    while (-not [string]::IsNullOrWhiteSpace($next)) {
+        $response = Invoke-GraphGet -Uri $next
+        $hasCollectionValue = Test-ObjectProperty -Object $response -PropertyName 'value'
+        $value = if ($hasCollectionValue) { Get-ObjectValue -Object $response -PropertyName 'value' } else { $null }
 
-        if ($response.PSObject.Properties.Name -contains "value") {
-            foreach ($item in $response.value) {
-                [void]$items.Add($item)
+        if ($hasCollectionValue) {
+            if ($null -eq $value) {
+                $value = @()
             }
-            $nextUri = $response.'@odata.nextLink'
+
+            if ($value -is [System.Collections.IEnumerable] -and -not ($value -is [string])) {
+                $results += @($value)
+            }
+            else {
+                $results += $value
+            }
+
+            $next = Get-NextLink -Response $response
         }
         else {
-            [void]$items.Add($response)
-            $nextUri = $null
+            $results += $response
+            $next = $null
         }
     }
 
-    return $items
+    return $results
 }
 
-function Get-SettingCount {
-    param([object]$Item)
-
-    $settings = Get-PropertyIfExists -Item $Item -PropertyName "settings"
-    if ($settings -is [System.Array]) {
-        return $settings.Count
-    }
-    if ($null -eq $settings) {
-        return 0
-    }
-    return 1
-}
-
-function Resolve-AssignmentTarget {
+function Resolve-PlatformFolder {
     param(
-        [object]$Assignment,
-        [hashtable]$GroupCache
+        [Parameter(Mandatory = $true)][object]$Item,
+        [Parameter(Mandatory = $true)][object]$Endpoint
     )
 
-    $target = Get-PropertyIfExists -Item $Assignment -PropertyName "target"
-    if ($null -eq $target) {
-        return [pscustomobject]@{
-            TargetType = "Unknown"
-            TargetValue = "Unknown"
-            GroupId = ""
-            GroupName = ""
-            IncludeExclude = "Unknown"
-            FilterId = ""
-            FilterType = ""
+    if ($Endpoint.id -in @(
+            "windowsFeatureUpdateProfiles",
+            "windowsQualityUpdateProfiles",
+            "windowsDriverUpdateProfiles",
+            "windowsAutopilotDeploymentProfiles",
+            "groupPolicyConfigurations",
+            "intents",
+            "reusablePolicySettings",
+            "mdmWindowsInformationProtectionPolicies"
+        )) {
+        return "Windows"
+    }
+
+    if ($Endpoint.id -eq "androidManagedAppProtections") {
+        return "Android"
+    }
+
+    if ($Endpoint.id -eq "iosManagedAppProtections") {
+        return "iOS-iPadOS"
+    }
+
+    if ($Endpoint.id -eq "targetedManagedAppConfigurations") {
+        $name = Resolve-ItemName -Item $Item
+        if ($name -match '(?i)android') {
+            return "Android"
+        }
+        if ($name -match '(?i)(ios|ipad)') {
+            return "iOS-iPadOS"
         }
     }
 
-    $odataType = [string](Get-PropertyIfExists -Item $target -PropertyName "@odata.type")
-    $groupId = [string](Get-PropertyIfExists -Item $target -PropertyName "groupId")
-    $filterId = [string](Get-PropertyIfExists -Item $target -PropertyName "deviceAndAppManagementAssignmentFilterId")
-    $filterType = [string](Get-PropertyIfExists -Item $target -PropertyName "deviceAndAppManagementAssignmentFilterType")
+    if ($Endpoint.id -eq "deviceEnrollmentConfigurations") {
+        $configType = [string](Get-ObjectValue -Object $Item -PropertyName 'deviceEnrollmentConfigurationType')
+        $enrollmentType = [string](Get-ObjectValue -Object $Item -PropertyName '@odata.type')
+        $enrollmentToken = "$configType $enrollmentType".ToLowerInvariant()
 
-    $includeExclude = if ($odataType.ToLowerInvariant().Contains("exclusion")) { "Exclude" } else { "Include" }
-    $targetType = "Unknown"
-    $targetValue = "Unknown"
-    $groupName = ""
+        if ($enrollmentToken -match 'platformrestriction') {
+            return "MultiPlatform"
+        }
+        if ($enrollmentToken -match 'limit') {
+            return "Global"
+        }
+    }
 
-    switch -Regex ($odataType.ToLowerInvariant()) {
-        "allusers" {
-            $targetType = "AllUsers"
-            $targetValue = "All Users"
-            break
+    if ($Endpoint.id -eq "deviceConfigurations") {
+        $configType = [string](Get-ObjectValue -Object $Item -PropertyName '@odata.type')
+        $normalizedConfigType = $configType.ToLowerInvariant()
+        if ($normalizedConfigType -match 'editionupgrade|sharedpc|windows|endpointprotection|bitlocker|defender|deliveryoptimization|updateforbusiness') {
+            return "Windows"
         }
-        "alldevices" {
-            $targetType = "AllDevices"
-            $targetValue = "All Devices"
-            break
+    }
+
+    $tokens = @()
+    foreach ($prop in @("platforms", "platform", "platformType", "devicePlatform", "osPlatform", "supportedPlatforms", "targetedPlatforms")) {
+        $v = Get-ObjectValue -Object $Item -PropertyName $prop
+        if ($null -eq $v) {
+            continue
         }
-        "group" {
-            $targetType = "Group"
-            $targetValue = $groupId
-            if (-not [string]::IsNullOrWhiteSpace($groupId)) {
-                if (-not $GroupCache.ContainsKey($groupId)) {
-                    $groupUri = "https://graph.microsoft.com/v1.0/groups/$groupId?`$select=id,displayName"
-                    $groupResult = Invoke-GraphGet -Uri $groupUri -AllowNotFound
-                    $resolvedGroupName = [string](Get-PropertyIfExists -Item $groupResult -PropertyName "displayName")
-                    $GroupCache[$groupId] = if (-not [string]::IsNullOrWhiteSpace($resolvedGroupName)) { $resolvedGroupName } else { "" }
+
+        if ($v -is [System.Collections.IEnumerable] -and -not ($v -is [string])) {
+            foreach ($x in $v) {
+                if (-not [string]::IsNullOrWhiteSpace([string]$x)) {
+                    $tokens += [string]$x
                 }
-                $groupName = [string]$GroupCache[$groupId]
             }
-            break
         }
-        default {
-            $targetType = if ([string]::IsNullOrWhiteSpace($odataType)) { "Unknown" } else { $odataType }
-            $targetValue = $targetType
-            break
+        else {
+            if (-not [string]::IsNullOrWhiteSpace([string]$v)) {
+                $tokens += [string]$v
+            }
+        }
+    }
+
+    $odataType = [string](Get-ObjectValue -Object $Item -PropertyName '@odata.type')
+    if (-not [string]::IsNullOrWhiteSpace($odataType)) {
+        $tokens += $odataType
+    }
+
+    $folders = New-Object System.Collections.Generic.HashSet[string]
+    foreach ($token in $tokens) {
+        $normalized = $token.ToLowerInvariant()
+        if ($normalized -match 'windows') {
+            $null = $folders.Add('Windows')
+        }
+        elseif ($normalized -match 'linux') {
+            $null = $folders.Add('Linux')
+        }
+        elseif ($normalized -match 'mac|osx') {
+            $null = $folders.Add('macOS')
+        }
+        elseif ($normalized -match 'ios|ipad') {
+            $null = $folders.Add('iOS-iPadOS')
+        }
+        elseif ($normalized -match 'android') {
+            $null = $folders.Add('Android')
+        }
+    }
+
+    if ($folders.Count -eq 0) {
+        return "Unknown"
+    }
+    if ($folders.Count -gt 1) {
+        return "MultiPlatform"
+    }
+
+    return ($folders | Select-Object -First 1)
+}
+
+function Get-EndpointItemPayload {
+    param(
+        [Parameter(Mandatory = $true)][object]$Item,
+        [Parameter(Mandatory = $true)][object]$Endpoint,
+        [Parameter(Mandatory = $true)][string]$ItemId
+    )
+
+    $payload = Convert-ToOrderedMap -Object $Item
+    $payloadErrors = @()
+
+    if ([string]::IsNullOrWhiteSpace($ItemId)) {
+        return [pscustomobject]@{
+            Payload = $payload
+            Errors  = $payloadErrors
+        }
+    }
+
+    if ($Endpoint.id -eq "intents") {
+        $settingsUris = @(
+            "https://graph.microsoft.com/$($Endpoint.apiVersion)/deviceManagement/intents/$($ItemId)/settings?`$expand=definition",
+            "https://graph.microsoft.com/$($Endpoint.apiVersion)/deviceManagement/intents/$($ItemId)/settings"
+        )
+
+        $settings = @()
+        $resolved = $false
+        $lastMessage = ""
+
+        foreach ($settingsUri in $settingsUris) {
+            try {
+                $settings = @(Get-GraphCollection -Uri $settingsUri)
+                $resolved = $true
+                break
+            }
+            catch {
+                $lastMessage = $_.Exception.Message
+            }
+        }
+
+        if (-not $resolved) {
+            $payloadErrors += [pscustomobject]@{
+                TimestampUtc = (Get-Date).ToUniversalTime().ToString("o")
+                EndpointId   = $Endpoint.id
+                Scope        = "intent-settings"
+                ItemId       = $ItemId
+                Message      = $lastMessage
+            }
+        }
+
+        $payload["settings"] = $settings
+    }
+    elseif ($Endpoint.id -eq "groupPolicyConfigurations") {
+        $definitionUris = @(
+            "https://graph.microsoft.com/$($Endpoint.apiVersion)/deviceManagement/groupPolicyConfigurations/$($ItemId)/definitionValues?`$expand=definition,presentationValues(`$expand=presentation)",
+            "https://graph.microsoft.com/$($Endpoint.apiVersion)/deviceManagement/groupPolicyConfigurations/$($ItemId)/definitionValues?`$expand=definition,presentationValues",
+            "https://graph.microsoft.com/$($Endpoint.apiVersion)/deviceManagement/groupPolicyConfigurations/$($ItemId)/definitionValues"
+        )
+
+        $definitionValues = @()
+        $resolved = $false
+        $lastMessage = ""
+
+        foreach ($definitionUri in $definitionUris) {
+            try {
+                $definitionValues = @(Get-GraphCollection -Uri $definitionUri)
+                $resolved = $true
+                break
+            }
+            catch {
+                $lastMessage = $_.Exception.Message
+            }
+        }
+
+        if (-not $resolved) {
+            $payloadErrors += [pscustomobject]@{
+                TimestampUtc = (Get-Date).ToUniversalTime().ToString("o")
+                EndpointId   = $Endpoint.id
+                Scope        = "groupPolicy-definitionValues"
+                ItemId       = $ItemId
+                Message      = $lastMessage
+            }
+        }
+
+        $definitionValueItems = @()
+        foreach ($definitionValue in $definitionValues) {
+            $definitionValueMap = Convert-ToOrderedMap -Object $definitionValue
+            $definitionValueId = [string](Get-ObjectValue -Object $definitionValue -PropertyName "id")
+
+            if (-not [string]::IsNullOrWhiteSpace($definitionValueId)) {
+                $presentationUris = @(
+                    "https://graph.microsoft.com/$($Endpoint.apiVersion)/deviceManagement/groupPolicyConfigurations/$($ItemId)/definitionValues/$($definitionValueId)/presentationValues?`$expand=presentation",
+                    "https://graph.microsoft.com/$($Endpoint.apiVersion)/deviceManagement/groupPolicyConfigurations/$($ItemId)/definitionValues/$($definitionValueId)/presentationValues"
+                )
+
+                $presentationValues = @()
+                $presentationResolved = $false
+                $presentationError = ""
+
+                foreach ($presentationUri in $presentationUris) {
+                    try {
+                        $presentationValues = @(Get-GraphCollection -Uri $presentationUri)
+                        $presentationResolved = $true
+                        break
+                    }
+                    catch {
+                        $presentationError = $_.Exception.Message
+                    }
+                }
+
+                if ($presentationResolved) {
+                    $definitionValueMap["presentationValues"] = $presentationValues
+                }
+                elseif (-not [string]::IsNullOrWhiteSpace($presentationError)) {
+                    $payloadErrors += [pscustomobject]@{
+                        TimestampUtc = (Get-Date).ToUniversalTime().ToString("o")
+                        EndpointId   = $Endpoint.id
+                        Scope        = "groupPolicy-presentationValues"
+                        ItemId       = "$ItemId/$definitionValueId"
+                        Message      = $presentationError
+                    }
+                }
+            }
+
+            $definitionValueItems += $definitionValueMap
+        }
+
+        $payload["definitionValues"] = $definitionValueItems
+    }
+    elseif ($Endpoint.id -eq "reusablePolicySettings") {
+        $detailUris = @(
+            "https://graph.microsoft.com/$($Endpoint.apiVersion)/deviceManagement/reusablePolicySettings/$($ItemId)?`$expand=settingDefinition,settingInstance",
+            "https://graph.microsoft.com/$($Endpoint.apiVersion)/deviceManagement/reusablePolicySettings/$($ItemId)"
+        )
+
+        $detail = $null
+        $resolved = $false
+        $lastMessage = ""
+
+        foreach ($detailUri in $detailUris) {
+            try {
+                $detail = Invoke-GraphGet -Uri $detailUri
+                $resolved = $true
+                break
+            }
+            catch {
+                $lastMessage = $_.Exception.Message
+            }
+        }
+
+        if ($resolved -and $null -ne $detail) {
+            $detailMap = Convert-ToOrderedMap -Object $detail
+            foreach ($key in $detailMap.Keys) {
+                $payload[$key] = $detailMap[$key]
+            }
+        }
+        else {
+            $payloadErrors += [pscustomobject]@{
+                TimestampUtc = (Get-Date).ToUniversalTime().ToString("o")
+                EndpointId   = $Endpoint.id
+                Scope        = "reusablePolicySetting-detail"
+                ItemId       = $ItemId
+                Message      = $lastMessage
+            }
         }
     }
 
     return [pscustomobject]@{
-        TargetType = $targetType
-        TargetValue = $targetValue
-        GroupId = $groupId
-        GroupName = $groupName
+        Payload = $payload
+        Errors  = $payloadErrors
+    }
+}
+
+function Resolve-AssignmentTarget {
+    param([Parameter(Mandatory = $true)][object]$Target)
+
+    $targetType = [string](Get-ObjectValue -Object $Target -PropertyName '@odata.type')
+    $groupId = [string](Get-ObjectValue -Object $Target -PropertyName 'groupId')
+
+    $includeExclude = 'Include'
+    if ($targetType -match 'exclusion') {
+        $includeExclude = 'Exclude'
+    }
+
+    $filterId = [string](Get-ObjectValue -Object $Target -PropertyName 'deviceAndAppManagementAssignmentFilterId')
+    $filterType = [string](Get-ObjectValue -Object $Target -PropertyName 'deviceAndAppManagementAssignmentFilterType')
+
+    if ([string]::IsNullOrWhiteSpace($filterId)) {
+        $filterId = [string](Get-ObjectValue -Object $Target -PropertyName 'assignmentFilterId')
+    }
+    if ([string]::IsNullOrWhiteSpace($filterType)) {
+        $filterType = [string](Get-ObjectValue -Object $Target -PropertyName 'assignmentFilterType')
+    }
+
+    return [pscustomobject]@{
+        TargetType     = $targetType
+        GroupId        = $groupId
         IncludeExclude = $includeExclude
-        FilterId = $filterId
-        FilterType = $filterType
+        FilterId       = $filterId
+        FilterType     = $filterType
     }
 }
 
@@ -613,7 +783,6 @@ function Normalize-RelativePath {
 Write-Log -Message "Runbook started. Authenticating with managed identity."
 Connect-AzAccount -Identity -ErrorAction Stop | Out-Null
 $context = Get-AzContext
-$tenantId = $context.Tenant.Id
 
 $catalog = $null
 if (-not [string]::IsNullOrWhiteSpace($EndpointCatalogJson)) {
@@ -629,10 +798,11 @@ else {
     Write-Log -Message "Endpoint catalog loaded from embedded default catalog."
 }
 
-$runId = [guid]::NewGuid().ToString()
-$startedUtc = (Get-Date).ToUniversalTime()
-$datePath = "{0}/{1}/{2}" -f $startedUtc.ToString("yyyy"), $startedUtc.ToString("MM"), $startedUtc.ToString("dd")
-$runFolder = "{0}-{1}" -f $startedUtc.ToString("yyyyMMddTHHmmssZ"), $runId
+$runStamp = (Get-Date).ToUniversalTime().ToString("yyyyMMdd-HHmmss")
+$runId = [guid]::NewGuid().ToString("n").Substring(0, 8)
+
+$datePath = (Get-Date).ToUniversalTime().ToString("yyyy/MM/dd")
+$runFolder = "$runStamp-$runId"
 
 $rootPrefix = $ExportRootPath.Trim("/")
 $relativeRoot = if ([string]::IsNullOrWhiteSpace($rootPrefix)) {
@@ -643,200 +813,191 @@ else {
 }
 
 $tempRoot = Join-Path $env:TEMP ("intune-policy-export-" + $runId)
-New-Item -Path $tempRoot -ItemType Directory -Force | Out-Null
-
 $reportsFolder = Join-Path $tempRoot "Reports"
 New-Item -Path $reportsFolder -ItemType Directory -Force | Out-Null
 
-$groupCache = @{}
-$exportRows = [System.Collections.Generic.List[object]]::new()
-$assignmentRows = [System.Collections.Generic.List[object]]::new()
-$summaryRows = [System.Collections.Generic.List[object]]::new()
-$errorRows = [System.Collections.Generic.List[object]]::new()
-
-$stats = [ordered]@{
-    EndpointsTotal = 0
-    EndpointsSuccess = 0
-    EndpointsFailed = 0
-    ItemsExported = 0
-    AssignmentRows = 0
-    Errors = 0
-}
+$allPolicies = @()
+$summaryRows = @()
+$errorRows = @()
+$assignmentRows = @()
 
 foreach ($endpoint in $catalog) {
-    $stats.EndpointsTotal++
-    $endpointName = "$($endpoint.area)/$($endpoint.subcategory)"
-    $endpointStart = Get-Date
-    $itemCount = 0
-    $itemErrors = 0
+    $uri = "https://graph.microsoft.com/$($endpoint.apiVersion)$($endpoint.path)"
+    Write-Log -Message "Exporting $($endpoint.id)"
+
+    $items = @()
+    $endpointErrors = 0
+    $endpointAssignments = 0
 
     try {
-        Write-Log -Message "Exporting endpoint: $endpointName ($($endpoint.path))"
-        $items = Get-GraphCollection -ApiVersion $endpoint.apiVersion -Path $endpoint.path
+        $items = @(Get-GraphCollection -Uri $uri)
+    }
+    catch {
+        $endpointErrors++
+        $errorRows += [pscustomobject]@{
+            TimestampUtc = (Get-Date).ToUniversalTime().ToString("o")
+            EndpointId   = $endpoint.id
+            Scope        = "endpoint"
+            ItemId       = ""
+            Message      = $_.Exception.Message
+        }
 
-        foreach ($item in $items) {
-            try {
-                $itemId = if ($null -ne (Get-PropertyIfExists -Item $item -PropertyName "id")) { [string]$item.id } else { [guid]::NewGuid().ToString() }
-                $itemName = Resolve-ItemName -Item $item
-                $safeName = Get-SafeName -Name $itemName
-                $safeId = Get-SafeName -Name $itemId
-                $platformFolder = Resolve-PlatformFolder -Area $endpoint.area -Item $item
-                $settingCount = Get-SettingCount -Item $item
+        $summaryRows += [pscustomobject]@{
+            EndpointId      = $endpoint.id
+            Area            = $endpoint.area
+            Subcategory     = $endpoint.subcategory
+            ApiVersion      = $endpoint.apiVersion
+            ItemCount       = 0
+            AssignmentCount = 0
+            ErrorCount      = $endpointErrors
+        }
 
-                $relativeFolder = Normalize-RelativePath -Path "$platformFolder/$($endpoint.area)/$($endpoint.subcategory)"
-                $fullFolder = Join-Path $tempRoot ($relativeFolder -replace "/", [IO.Path]::DirectorySeparatorChar)
-                New-Item -Path $fullFolder -ItemType Directory -Force | Out-Null
+        continue
+    }
 
-                $fileName = "$safeName--$safeId.json"
-                $localFilePath = Join-Path $fullFolder $fileName
-                $item | ConvertTo-Json -Depth 100 | Set-Content -Path $localFilePath -Encoding UTF8
+    foreach ($item in $items) {
+        $itemId = [string](Get-ObjectValue -Object $item -PropertyName "id")
+        $itemName = Resolve-ItemName -Item $item
+        $platform = Resolve-PlatformFolder -Item $item -Endpoint $endpoint
+        $safeName = Get-SafeName -Name $itemName
 
-                $relativeFilePath = Normalize-RelativePath -Path "$relativeFolder/$fileName"
-                $blobPath = Normalize-RelativePath -Path "$relativeRoot/$relativeFilePath"
+        $payloadResult = Get-EndpointItemPayload -Item $item -Endpoint $endpoint -ItemId $itemId
+        foreach ($payloadError in $payloadResult.Errors) {
+            $endpointErrors++
+            $errorRows += $payloadError
+        }
+        $itemPayload = $payloadResult.Payload
 
-                $assignments = @()
-                if (-not [string]::IsNullOrWhiteSpace([string]$endpoint.assignmentPathTemplate)) {
-                    $assignmentPath = [string]$endpoint.assignmentPathTemplate
-                    $assignmentPath = $assignmentPath.Replace("{id}", $itemId)
-                    try {
-                        $assignments = Get-GraphCollection -ApiVersion $endpoint.apiVersion -Path $assignmentPath -AllowNotFound
-                    }
-                    catch {
-                        $itemErrors++
-                        $stats.Errors++
-                        $errorRows.Add([pscustomobject]@{
-                                TimestampUtc = (Get-Date).ToUniversalTime().ToString("o")
-                                Level = "AssignmentError"
-                                Endpoint = $endpointName
-                                ObjectId = $itemId
-                                ObjectName = $itemName
-                                Uri = "https://graph.microsoft.com/$($endpoint.apiVersion)$assignmentPath"
-                                Message = $_.Exception.Message
-                            })
-                    }
-                }
+        $itemDir = Join-Path $tempRoot (Join-Path $platform (Join-Path $endpoint.area $endpoint.subcategory))
+        New-Item -ItemType Directory -Path $itemDir -Force | Out-Null
 
-                foreach ($assignment in $assignments) {
-                    $target = Resolve-AssignmentTarget -Assignment $assignment -GroupCache $groupCache
-                    $assignmentId = if ($null -ne (Get-PropertyIfExists -Item $assignment -PropertyName "id")) { [string]$assignment.id } else { "" }
+        $fileName = if ([string]::IsNullOrWhiteSpace($itemId)) { "$safeName.json" } else { "$safeName--$itemId.json" }
+        $jsonPath = Join-Path $itemDir $fileName
 
-                    $assignmentRows.Add([pscustomobject]@{
-                            ExportTimestampUtc = $startedUtc.ToString("o")
-                            RunId = $runId
-                            Category = $endpoint.area
-                            Subcategory = $endpoint.subcategory
-                            ObjectName = $itemName
-                            ObjectId = $itemId
-                            AssignmentId = $assignmentId
-                            TargetType = $target.TargetType
-                            TargetValue = $target.TargetValue
-                            GroupId = $target.GroupId
-                            GroupName = $target.GroupName
-                            IncludeExclude = $target.IncludeExclude
-                            FilterId = $target.FilterId
-                            FilterType = $target.FilterType
-                        })
-                }
-
-                $exportRows.Add([pscustomobject]@{
-                        ExportTimestampUtc = $startedUtc.ToString("o")
-                        TenantId = $tenantId
-                        RunId = $runId
-                        Category = $endpoint.area
-                        Subcategory = $endpoint.subcategory
-                        PlatformFolder = $platformFolder
-                        Name = $itemName
-                        Id = $itemId
-                        ApiVersion = $endpoint.apiVersion
-                        EndpointPath = $endpoint.path
-                        SettingCount = $settingCount
-                        AssignmentCount = $assignments.Count
-                        CreatedDateTime = [string](Get-PropertyIfExists -Item $item -PropertyName "createdDateTime")
-                        LastModifiedDateTime = [string](Get-PropertyIfExists -Item $item -PropertyName "lastModifiedDateTime")
-                        FilePath = $blobPath
-                        Status = "Exported"
-                        ErrorMessage = ""
-                    })
-
-                $itemCount++
-                $stats.ItemsExported++
-                $stats.AssignmentRows += $assignments.Count
-            }
-            catch {
-                $itemErrors++
-                $stats.Errors++
-                $errorRows.Add([pscustomobject]@{
-                        TimestampUtc = (Get-Date).ToUniversalTime().ToString("o")
-                        Level = "ItemError"
-                        Endpoint = $endpointName
-                        ObjectId = [string](Get-PropertyIfExists -Item $item -PropertyName "id")
-                        ObjectName = [string](Resolve-ItemName -Item $item)
-                        Uri = "https://graph.microsoft.com/$($endpoint.apiVersion)$($endpoint.path)"
-                        Message = $_.Exception.Message
-                    })
+        try {
+            $itemPayload | ConvertTo-Json -Depth 100 | Out-File -LiteralPath $jsonPath -Encoding utf8
+        }
+        catch {
+            $endpointErrors++
+            $errorRows += [pscustomobject]@{
+                TimestampUtc = (Get-Date).ToUniversalTime().ToString("o")
+                EndpointId   = $endpoint.id
+                Scope        = "item-json"
+                ItemId       = $itemId
+                Message      = $_.Exception.Message
             }
         }
 
-        $stats.EndpointsSuccess++
-    }
-    catch {
-        $stats.EndpointsFailed++
-        $stats.Errors++
-        $errorRows.Add([pscustomobject]@{
-                TimestampUtc = (Get-Date).ToUniversalTime().ToString("o")
-                Level = "EndpointError"
-                Endpoint = $endpointName
-                ObjectId = ""
-                ObjectName = ""
-                Uri = "https://graph.microsoft.com/$($endpoint.apiVersion)$($endpoint.path)"
-                Message = $_.Exception.Message
-            })
+        $itemAssignmentCount = 0
+        $assignmentTemplate = [string](Get-ObjectValue -Object $endpoint -PropertyName "assignmentPathTemplate")
+        if (-not [string]::IsNullOrWhiteSpace($assignmentTemplate) -and -not [string]::IsNullOrWhiteSpace($itemId)) {
+            $assignmentUri = "https://graph.microsoft.com/$($endpoint.apiVersion)$($assignmentTemplate.Replace('{id}', $itemId))"
+            try {
+                $assignments = @(Get-GraphCollection -Uri $assignmentUri)
+                foreach ($assignment in $assignments) {
+                    $target = Get-ObjectValue -Object $assignment -PropertyName "target"
+                    if ($null -eq $target) {
+                        continue
+                    }
+
+                    $resolved = Resolve-AssignmentTarget -Target $target
+                    $assignmentRows += [pscustomobject]@{
+                        Area             = $endpoint.area
+                        Subcategory      = $endpoint.subcategory
+                        EndpointId       = $endpoint.id
+                        PolicyId         = $itemId
+                        PolicyName       = $itemName
+                        AssignmentId     = [string](Get-ObjectValue -Object $assignment -PropertyName "id")
+                        TargetType       = $resolved.TargetType
+                        GroupId          = $resolved.GroupId
+                        IncludeExclude   = $resolved.IncludeExclude
+                        FilterId         = $resolved.FilterId
+                        FilterType       = $resolved.FilterType
+                        TargetJson       = (($target | ConvertTo-Json -Depth 20 -Compress) -replace "`r?`n", "")
+                    }
+                    $itemAssignmentCount++
+                }
+            }
+            catch {
+                $endpointErrors++
+                $errorRows += [pscustomobject]@{
+                    TimestampUtc = (Get-Date).ToUniversalTime().ToString("o")
+                    EndpointId   = $endpoint.id
+                    Scope        = "assignments"
+                    ItemId       = $itemId
+                    Message      = $_.Exception.Message
+                }
+            }
+        }
+
+        $endpointAssignments += $itemAssignmentCount
+
+        $relativePath = $jsonPath
+        if ($jsonPath.StartsWith($tempRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+            $relativePath = $jsonPath.Substring($tempRoot.Length).TrimStart([System.IO.Path]::DirectorySeparatorChar)
+        }
+
+        $allPolicies += [pscustomobject]@{
+            Area            = $endpoint.area
+            Subcategory     = $endpoint.subcategory
+            EndpointId      = $endpoint.id
+            PlatformFolder  = $platform
+            Name            = $itemName
+            Id              = $itemId
+            AssignmentCount = $itemAssignmentCount
+            FilePath        = Normalize-RelativePath -Path $relativePath
+        }
     }
 
-    $elapsed = [math]::Round(((Get-Date) - $endpointStart).TotalSeconds, 2)
-    $summaryRows.Add([pscustomobject]@{
-            ExportTimestampUtc = $startedUtc.ToString("o")
-            RunId = $runId
-            Category = $endpoint.area
-            Subcategory = $endpoint.subcategory
-            ApiVersion = $endpoint.apiVersion
-            EndpointPath = $endpoint.path
-            ExportedItemCount = $itemCount
-            ItemErrors = $itemErrors
-            DurationSeconds = $elapsed
-            Status = if ($itemErrors -gt 0) { "Partial" } else { "Success" }
-        })
+    $summaryRows += [pscustomobject]@{
+        EndpointId      = $endpoint.id
+        Area            = $endpoint.area
+        Subcategory     = $endpoint.subcategory
+        ApiVersion      = $endpoint.apiVersion
+        ItemCount       = $items.Count
+        AssignmentCount = $endpointAssignments
+        ErrorCount      = $endpointErrors
+    }
 }
 
 $allPoliciesCsv = Join-Path $reportsFolder "All-Policies.csv"
 $summaryCsv = Join-Path $reportsFolder "Export-Summary.csv"
 $errorsCsv = Join-Path $reportsFolder "Export-Errors.csv"
 $assignmentsCsv = Join-Path $reportsFolder "Assignments.csv"
-$manifestJson = Join-Path $reportsFolder "manifest.json"
+$manifestPath = Join-Path $reportsFolder "manifest.json"
 
-$exportRows | Export-Csv -Path $allPoliciesCsv -NoTypeInformation -Encoding UTF8
-$summaryRows | Export-Csv -Path $summaryCsv -NoTypeInformation -Encoding UTF8
-$errorRows | Export-Csv -Path $errorsCsv -NoTypeInformation -Encoding UTF8
-$assignmentRows | Export-Csv -Path $assignmentsCsv -NoTypeInformation -Encoding UTF8
+$allPolicies | Sort-Object Area, Subcategory, Name | Export-Csv -Path $allPoliciesCsv -NoTypeInformation -Encoding utf8
+$summaryRows | Sort-Object Area, Subcategory | Export-Csv -Path $summaryCsv -NoTypeInformation -Encoding utf8
+$errorRows | Export-Csv -Path $errorsCsv -NoTypeInformation -Encoding utf8
+$assignmentRows | Sort-Object Area, Subcategory, PolicyName | Export-Csv -Path $assignmentsCsv -NoTypeInformation -Encoding utf8
 
-$finishedUtc = (Get-Date).ToUniversalTime()
-$manifest = [pscustomobject]@{
-    schemaVersion = "1.0"
-    runId = $runId
-    tenantId = $tenantId
-    startedUtc = $startedUtc.ToString("o")
-    finishedUtc = $finishedUtc.ToString("o")
-    durationSeconds = [math]::Round(($finishedUtc - $startedUtc).TotalSeconds, 2)
-    storageAccountName = $StorageAccountName
-    storageContainerName = $StorageContainerName
-    blobRoot = $relativeRoot
-    endpointCatalogCount = $catalog.Count
-    stats = $stats
+$tenantIdValue = Get-ObjectValue -Object $context -PropertyName "TenantId"
+if ([string]::IsNullOrWhiteSpace([string]$tenantIdValue)) {
+    $tenantObject = Get-ObjectValue -Object $context -PropertyName "Tenant"
+    $tenantIdValue = Get-ObjectValue -Object $tenantObject -PropertyName "Id"
 }
 
-$manifest | ConvertTo-Json -Depth 10 | Set-Content -Path $manifestJson -Encoding UTF8
+$accountValue = Get-ObjectValue -Object $context -PropertyName "Account"
+$accountId = Get-ObjectValue -Object $accountValue -PropertyName "Id"
+if (-not [string]::IsNullOrWhiteSpace([string]$accountId)) {
+    $accountValue = $accountId
+}
 
-Write-Log -Message "Uploading artifacts to Storage Account $StorageAccountName / container $StorageContainerName"
+$manifest = [pscustomobject]@{
+    generatedUtc          = (Get-Date).ToUniversalTime().ToString("o")
+    tenantId              = Convert-ToSingleString -Value $tenantIdValue
+    account               = Convert-ToSingleString -Value $accountValue
+    endpointCount         = $catalog.Count
+    totalPolicies         = $allPolicies.Count
+    totalAssignments      = $assignmentRows.Count
+    totalReusableSettings = (@($allPolicies | Where-Object { $_.EndpointId -eq "reusablePolicySettings" })).Count
+    totalErrors           = $errorRows.Count
+    outputRoot            = $relativeRoot
+    reportsFolder         = "Reports"
+}
+
+$manifest | ConvertTo-Json -Depth 10 | Out-File -LiteralPath $manifestPath -Encoding utf8
+
 Import-Module Az.Storage -ErrorAction Stop
 
 $storageContext = New-AzStorageContext -StorageAccountName $StorageAccountName -UseConnectedAccount
@@ -850,26 +1011,23 @@ $localFiles = Get-ChildItem -Path $tempRoot -File -Recurse
 foreach ($file in $localFiles) {
     $relativeLocal = Normalize-RelativePath -Path $file.FullName.Substring($tempRoot.Length)
     $blobName = Normalize-RelativePath -Path "$relativeRoot/$relativeLocal"
-
     Set-AzStorageBlobContent -Context $storageContext -Container $StorageContainerName -Blob $blobName -File $file.FullName -Force | Out-Null
     $uploadedCount++
 }
 
 $result = [pscustomobject]@{
-    status = if ($stats.EndpointsFailed -gt 0) { "PartialSuccess" } else { "Success" }
-    runId = $runId
-    tenantId = $tenantId
-    exportedItems = $stats.ItemsExported
-    assignmentRows = $stats.AssignmentRows
-    endpointFailures = $stats.EndpointsFailed
-    errorCount = $stats.Errors
-    uploadedFiles = $uploadedCount
-    blobRoot = $relativeRoot
-    storageAccountName = $StorageAccountName
-    containerName = $StorageContainerName
+    status               = if ($errorRows.Count -gt 0) { "PartialSuccess" } else { "Success" }
+    runId                = $runId
+    exportedItems        = $allPolicies.Count
+    assignmentRows       = $assignmentRows.Count
+    errorCount           = $errorRows.Count
+    uploadedFiles        = $uploadedCount
+    blobRoot             = $relativeRoot
+    storageAccountName   = $StorageAccountName
+    storageContainerName = $StorageContainerName
 }
 
-Write-Log -Message "Export completed. Items: $($stats.ItemsExported), Errors: $($stats.Errors), UploadedFiles: $uploadedCount"
+Write-Log -Message "Export completed. Policies: $($allPolicies.Count), Assignments: $($assignmentRows.Count), Errors: $($errorRows.Count), UploadedFiles: $uploadedCount"
 $result | ConvertTo-Json -Depth 6
 
 try {

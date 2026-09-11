@@ -10,17 +10,16 @@ This solution is designed for private repositories first, and can be switched to
 
 ## What it exports
 
-The runbook exports broad Intune configuration coverage, including:
+The runbook exports the currently supported Intune configuration coverage (16 endpoints), including:
 
 - Device configuration and Settings Catalog
 - Endpoint Security policies
+- Endpoint Security reusable settings
 - Compliance policies
 - Update policies
 - Enrollment profiles and restrictions
-- Scripts and remediations
 - App configuration/protection/policies metadata
-- Assignment filters, scope tags, Intune RBAC, templates
-- Assignments with include/exclude and group name resolution
+- Assignments with include/exclude, group ID, and assignment filter details
 
 It writes:
 
@@ -46,7 +45,6 @@ Platform folders include:
 - `Android`
 - `MultiPlatform`
 - `Unknown`
-- `Tenant`
 
 ## Prerequisites
 
@@ -104,6 +102,7 @@ Button (will work after repo is public, or if this file is exposed from a public
 [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fkadirsu76%2Fintune-policy-export-automation%2Fmain%2Fazuredeploy.json)
 
 Template entry file is `azuredeploy.json` in this folder. It references `infra/main.json` via `relativePath`.
+Because of that, keep `infra/main.json` regenerated and committed after changing `infra/main.bicep`, `runbook/Export-IntuneConfiguration.ps1`, or `infra/publish-runbook.ps1`.
 
 ## Managed identity permissions
 
@@ -112,8 +111,6 @@ Minimum Graph app roles used by the helper script:
 - `DeviceManagementConfiguration.Read.All`
 - `DeviceManagementApps.Read.All`
 - `DeviceManagementServiceConfig.Read.All`
-- `DeviceManagementRBAC.Read.All`
-- `Group.Read.All`
 
 Azure RBAC set by template:
 
