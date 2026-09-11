@@ -2,56 +2,13 @@
   "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
   "contentVersion": "1.0.0.0",
   "parameters": {
-    "location": {
-      "type": "string",
-      "defaultValue": "[resourceGroup().location]",
-      "metadata": {
-        "description": "Resource location"
-      }
-    },
-    "prefix": {
+    "baseName": {
       "type": "string",
       "defaultValue": "intunex",
-      "maxLength": 12,
-      "metadata": {
-        "description": "Solution prefix used in resource names"
-      }
-    },
-    "automationAccountName": {
-      "type": "string",
-      "defaultValue": "intunex-aa",
-      "metadata": {
-        "description": "Automation account name"
-      }
-    },
-    "logicAppName": {
-      "type": "string",
-      "defaultValue": "intunex-la",
-      "metadata": {
-        "description": "Logic App (Consumption) name"
-      }
-    },
-    "runbookName": {
-      "type": "string",
-      "defaultValue": "Export-IntuneConfiguration",
-      "metadata": {
-        "description": "Runbook name"
-      }
-    },
-    "storageAccountName": {
-      "type": "string",
-      "defaultValue": "[toLower(format('intune{0}', uniqueString(resourceGroup().id)))]",
       "minLength": 3,
-      "maxLength": 24,
+      "maxLength": 20,
       "metadata": {
-        "description": "Storage account name (3-24 lowercase letters/numbers)"
-      }
-    },
-    "storageContainerName": {
-      "type": "string",
-      "defaultValue": "intune-exports",
-      "metadata": {
-        "description": "Blob container name"
+        "description": "Single base name used to derive resource names, for example intunex => la-intunex, aa-intunex"
       }
     },
     "exportRootPath": {
@@ -83,26 +40,8 @@
           "relativePath": "infra/main.json"
         },
         "parameters": {
-          "location": {
-            "value": "[parameters('location')]"
-          },
-          "prefix": {
-            "value": "[parameters('prefix')]"
-          },
-          "automationAccountName": {
-            "value": "[parameters('automationAccountName')]"
-          },
-          "logicAppName": {
-            "value": "[parameters('logicAppName')]"
-          },
-          "runbookName": {
-            "value": "[parameters('runbookName')]"
-          },
-          "storageAccountName": {
-            "value": "[parameters('storageAccountName')]"
-          },
-          "storageContainerName": {
-            "value": "[parameters('storageContainerName')]"
+          "baseName": {
+            "value": "[parameters('baseName')]"
           },
           "exportRootPath": {
             "value": "[parameters('exportRootPath')]"
@@ -119,17 +58,33 @@
       "type": "string",
       "value": "[reference('intunePolicyExportMain').outputs.storageAccountResourceId.value]"
     },
+    "storageAccountName": {
+      "type": "string",
+      "value": "[reference('intunePolicyExportMain').outputs.storageAccountNameOut.value]"
+    },
     "automationAccountResourceId": {
       "type": "string",
       "value": "[reference('intunePolicyExportMain').outputs.automationAccountResourceId.value]"
+    },
+    "automationAccountName": {
+      "type": "string",
+      "value": "[reference('intunePolicyExportMain').outputs.automationAccountNameOut.value]"
     },
     "automationPrincipalId": {
       "type": "string",
       "value": "[reference('intunePolicyExportMain').outputs.automationPrincipalId.value]"
     },
+    "runbookName": {
+      "type": "string",
+      "value": "[reference('intunePolicyExportMain').outputs.runbookNameOut.value]"
+    },
     "logicAppResourceId": {
       "type": "string",
       "value": "[reference('intunePolicyExportMain').outputs.logicAppResourceId.value]"
+    },
+    "logicAppName": {
+      "type": "string",
+      "value": "[reference('intunePolicyExportMain').outputs.logicAppNameOut.value]"
     },
     "logicAppPrincipalId": {
       "type": "string",

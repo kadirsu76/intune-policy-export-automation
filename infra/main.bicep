@@ -3,26 +3,10 @@ targetScope = 'resourceGroup'
 @description('Resource location')
 param location string = resourceGroup().location
 
-@description('Solution prefix used in resource names')
-@maxLength(12)
-param prefix string = 'intunex'
-
-@description('Automation account name')
-param automationAccountName string = '${prefix}-aa'
-
-@description('Logic App (Consumption) name')
-param logicAppName string = '${prefix}-la'
-
-@description('Runbook name')
-param runbookName string = 'Export-IntuneConfiguration'
-
-@description('Storage account name (3-24 lowercase letters/numbers)')
+@description('Single base name used to derive all resource names, for example intunex => la-intunex, aa-intunex')
 @minLength(3)
-@maxLength(24)
-param storageAccountName string = toLower('intune${uniqueString(resourceGroup().id)}')
-
-@description('Blob container name')
-param storageContainerName string = 'intune-exports'
+@maxLength(20)
+param baseName string = 'intunex'
 
 @description('Blob root path prefix')
 @minLength(1)
@@ -39,9 +23,17 @@ var automationContributorRoleId = subscriptionResourceId('Microsoft.Authorizatio
 var logicDefinition = loadJsonContent('workflow-definition.json')
 var runbookContentBase64 = base64(loadTextContent('../runbook/Export-IntuneConfiguration.ps1'))
 var publishRunbookScriptContent = loadTextContent('publish-runbook.ps1')
+var normalizedBaseName = toLower(replace(baseName, '_', '-'))
+var storageAccountName = 'st${uniqueString(resourceGroup().id, normalizedBaseName)}'
+var storageContainerName = '${normalizedBaseName}-exports'
+var automationAccountName = 'aa-${normalizedBaseName}'
+var logicAppName = 'la-${normalizedBaseName}'
+var runbookName = 'rb-${normalizedBaseName}-export'
+var deploymentIdentityName = 'mi-${normalizedBaseName}-ds'
+var publishRunbookScriptName = 'ds-${normalizedBaseName}-publish-runbook'
 
 resource deploymentIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
-  name: '${prefix}-ds-mi'
+  name: deploymentIdentityName
   location: location
 }
 
@@ -144,7 +136,7 @@ resource automationRoleForDeploymentScript 'Microsoft.Authorization/roleAssignme
 }
 
 resource publishRunbookScript 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
-  name: '${prefix}-publish-runbook'
+  name: publishRunbookScriptName
   location: location
   kind: 'AzurePowerShell'
   identity: {
@@ -250,9 +242,12 @@ resource automationRoleForLogicApp 'Microsoft.Authorization/roleAssignments@2022
 }
 
 output storageAccountResourceId string = storageAccount.id
+output storageAccountNameOut string = storageAccount.name
 output storageContainer string = storageContainerName
 output automationAccountResourceId string = automationAccount.id
+output automationAccountNameOut string = automationAccount.name
 output automationPrincipalId string = automationAccount.identity.principalId
 output runbookNameOut string = runbook.name
 output logicAppResourceId string = logicApp.id
+output logicAppNameOut string = logicApp.name
 output logicAppPrincipalId string = logicApp.identity.principalId

@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.47.16.16243",
-      "templateHash": "16735547839380469628"
+      "templateHash": "13613657904546787537"
     }
   },
   "parameters": {
@@ -16,49 +16,13 @@
         "description": "Resource location"
       }
     },
-    "prefix": {
+    "baseName": {
       "type": "string",
       "defaultValue": "intunex",
-      "maxLength": 12,
-      "metadata": {
-        "description": "Solution prefix used in resource names"
-      }
-    },
-    "automationAccountName": {
-      "type": "string",
-      "defaultValue": "[format('{0}-aa', parameters('prefix'))]",
-      "metadata": {
-        "description": "Automation account name"
-      }
-    },
-    "logicAppName": {
-      "type": "string",
-      "defaultValue": "[format('{0}-la', parameters('prefix'))]",
-      "metadata": {
-        "description": "Logic App (Consumption) name"
-      }
-    },
-    "runbookName": {
-      "type": "string",
-      "defaultValue": "Export-IntuneConfiguration",
-      "metadata": {
-        "description": "Runbook name"
-      }
-    },
-    "storageAccountName": {
-      "type": "string",
-      "defaultValue": "[toLower(format('intune{0}', uniqueString(resourceGroup().id)))]",
       "minLength": 3,
-      "maxLength": 24,
+      "maxLength": 20,
       "metadata": {
-        "description": "Storage account name (3-24 lowercase letters/numbers)"
-      }
-    },
-    "storageContainerName": {
-      "type": "string",
-      "defaultValue": "intune-exports",
-      "metadata": {
-        "description": "Blob container name"
+        "description": "Single base name used to derive all resource names, for example intunex => la-intunex, aa-intunex"
       }
     },
     "exportRootPath": {
@@ -116,10 +80,10 @@
           "recurrence": {
             "frequency": "Day",
             "interval": 1,
-            "timeZone": "Europe/Istanbul",
+            "timeZone": "UTC",
             "schedule": {
               "hours": [
-                3
+                0
               ],
               "minutes": [
                 0
@@ -272,19 +236,27 @@
     "automationContributorRoleId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'f353d9bd-d4a6-484e-a77a-8050b599b867')]",
     "logicDefinition": "[variables('$fxv#0')]",
     "runbookContentBase64": "[base64(variables('$fxv#1'))]",
-    "publishRunbookScriptContent": "$ErrorActionPreference = 'Stop'\n\nImport-Module Az.Accounts -ErrorAction Stop\n\nConnect-AzAccount -Identity | Out-Null\n$subscriptionId = (Get-AzContext).Subscription.Id\n\n$resourceGroupName = $env:RG_NAME\n$automationAccountName = $env:AA_NAME\n$runbookName = $env:RUNBOOK_NAME\n$apiVersion = $env:AUTOMATION_API_VERSION\n$runbookContentBase64 = $env:RUNBOOK_CONTENT_B64\n$runbookContent = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($runbookContentBase64))\n\nif ([string]::IsNullOrWhiteSpace($runbookContent)) {\n    throw 'RUNBOOK_CONTENT_B64 resolved to empty content. Cannot continue.'\n}\n\n$baseUrl = \"https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$resourceGroupName/providers/Microsoft.Automation/automationAccounts/$automationAccountName/runbooks/$runbookName\"\n$token = (Get-AzAccessToken -ResourceUrl 'https://management.azure.com').Token\n\n$replaceHeaders = @{\n    Authorization = \"Bearer $token\"\n    'Content-Type' = 'text/plain'\n}\n\nfunction Invoke-WithRetry {\n    param(\n        [Parameter(Mandatory = $true)][scriptblock]$ScriptBlock,\n        [int]$MaxAttempts = 15,\n        [int]$DelaySeconds = 10\n    )\n\n    for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {\n        try {\n            return & $ScriptBlock\n        }\n        catch {\n            if ($attempt -eq $MaxAttempts) {\n                throw\n            }\n\n            Start-Sleep -Seconds $DelaySeconds\n        }\n    }\n}\n\nInvoke-WithRetry -ScriptBlock {\n    Invoke-RestMethod -Method Put -Uri \"$baseUrl/draft/content?api-version=$apiVersion\" -Headers $replaceHeaders -Body $runbookContent | Out-Null\n} | Out-Null\n\nInvoke-WithRetry -ScriptBlock {\n    Invoke-RestMethod -Method Post -Uri \"$baseUrl/publish?api-version=$apiVersion\" -Headers @{ Authorization = \"Bearer $token\" } | Out-Null\n} | Out-Null\n\n$published = $false\nfor ($i = 0; $i -lt 60; $i++) {\n    Start-Sleep -Seconds 5\n    $state = Invoke-RestMethod -Method Get -Uri \"$baseUrl?api-version=$apiVersion\" -Headers @{ Authorization = \"Bearer $token\" }\n    if ($state.properties.state -eq 'Published') {\n        $published = $true\n        break\n    }\n}\n\nif (-not $published) {\n    throw 'Runbook publish did not reach Published state in allotted time.'\n}\n\n$DeploymentScriptOutputs = @{\n    runbookState = 'Published'\n}\n"
+    "publishRunbookScriptContent": "$ErrorActionPreference = 'Stop'\n\nImport-Module Az.Accounts -ErrorAction Stop\n\nConnect-AzAccount -Identity | Out-Null\n$subscriptionId = (Get-AzContext).Subscription.Id\n\n$resourceGroupName = $env:RG_NAME\n$automationAccountName = $env:AA_NAME\n$runbookName = $env:RUNBOOK_NAME\n$apiVersion = $env:AUTOMATION_API_VERSION\n$runbookContentBase64 = $env:RUNBOOK_CONTENT_B64\n$runbookContent = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($runbookContentBase64))\n\nif ([string]::IsNullOrWhiteSpace($runbookContent)) {\n    throw 'RUNBOOK_CONTENT_B64 resolved to empty content. Cannot continue.'\n}\n\n$baseUrl = \"https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$resourceGroupName/providers/Microsoft.Automation/automationAccounts/$automationAccountName/runbooks/$runbookName\"\n$token = (Get-AzAccessToken -ResourceUrl 'https://management.azure.com').Token\n\n$replaceHeaders = @{\n    Authorization = \"Bearer $token\"\n    'Content-Type' = 'text/plain'\n}\n\nfunction Invoke-WithRetry {\n    param(\n        [Parameter(Mandatory = $true)][scriptblock]$ScriptBlock,\n        [int]$MaxAttempts = 15,\n        [int]$DelaySeconds = 10\n    )\n\n    for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {\n        try {\n            return & $ScriptBlock\n        }\n        catch {\n            if ($attempt -eq $MaxAttempts) {\n                throw\n            }\n\n            Start-Sleep -Seconds $DelaySeconds\n        }\n    }\n}\n\nInvoke-WithRetry -ScriptBlock {\n    Invoke-RestMethod -Method Put -Uri \"$baseUrl/draft/content?api-version=$apiVersion\" -Headers $replaceHeaders -Body $runbookContent | Out-Null\n} | Out-Null\n\nInvoke-WithRetry -ScriptBlock {\n    Invoke-RestMethod -Method Post -Uri \"$baseUrl/publish?api-version=$apiVersion\" -Headers @{ Authorization = \"Bearer $token\" } | Out-Null\n} | Out-Null\n\n$published = $false\nfor ($i = 0; $i -lt 60; $i++) {\n    Start-Sleep -Seconds 5\n    $state = Invoke-RestMethod -Method Get -Uri \"$baseUrl?api-version=$apiVersion\" -Headers @{ Authorization = \"Bearer $token\" }\n    if ($state.properties.state -eq 'Published') {\n        $published = $true\n        break\n    }\n}\n\nif (-not $published) {\n    throw 'Runbook publish did not reach Published state in allotted time.'\n}\n\n$DeploymentScriptOutputs = @{\n    runbookState = 'Published'\n}\n",
+    "normalizedBaseName": "[toLower(replace(parameters('baseName'), '_', '-'))]",
+    "storageAccountName": "[format('st{0}', uniqueString(resourceGroup().id, variables('normalizedBaseName')))]",
+    "storageContainerName": "[format('{0}-exports', variables('normalizedBaseName'))]",
+    "automationAccountName": "[format('aa-{0}', variables('normalizedBaseName'))]",
+    "logicAppName": "[format('la-{0}', variables('normalizedBaseName'))]",
+    "runbookName": "[format('rb-{0}-export', variables('normalizedBaseName'))]",
+    "deploymentIdentityName": "[format('mi-{0}-ds', variables('normalizedBaseName'))]",
+    "publishRunbookScriptName": "[format('ds-{0}-publish-runbook', variables('normalizedBaseName'))]"
   },
   "resources": [
     {
       "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
       "apiVersion": "2023-01-31",
-      "name": "[format('{0}-ds-mi', parameters('prefix'))]",
+      "name": "[variables('deploymentIdentityName')]",
       "location": "[parameters('location')]"
     },
     {
       "type": "Microsoft.Storage/storageAccounts",
       "apiVersion": "2023-05-01",
-      "name": "[parameters('storageAccountName')]",
+      "name": "[variables('storageAccountName')]",
       "location": "[parameters('location')]",
       "sku": {
         "name": "Standard_LRS"
@@ -299,26 +271,26 @@
     {
       "type": "Microsoft.Storage/storageAccounts/blobServices",
       "apiVersion": "2023-05-01",
-      "name": "[format('{0}/{1}', parameters('storageAccountName'), 'default')]",
+      "name": "[format('{0}/{1}', variables('storageAccountName'), 'default')]",
       "dependsOn": [
-        "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
       ]
     },
     {
       "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
       "apiVersion": "2023-05-01",
-      "name": "[format('{0}/{1}/{2}', parameters('storageAccountName'), 'default', parameters('storageContainerName'))]",
+      "name": "[format('{0}/{1}/{2}', variables('storageAccountName'), 'default', variables('storageContainerName'))]",
       "properties": {
         "publicAccess": "None"
       },
       "dependsOn": [
-        "[resourceId('Microsoft.Storage/storageAccounts/blobServices', parameters('storageAccountName'), 'default')]"
+        "[resourceId('Microsoft.Storage/storageAccounts/blobServices', variables('storageAccountName'), 'default')]"
       ]
     },
     {
       "type": "Microsoft.Storage/storageAccounts/managementPolicies",
       "apiVersion": "2023-05-01",
-      "name": "[format('{0}/{1}', parameters('storageAccountName'), 'default')]",
+      "name": "[format('{0}/{1}', variables('storageAccountName'), 'default')]",
       "properties": {
         "policy": {
           "rules": [
@@ -348,13 +320,13 @@
         }
       },
       "dependsOn": [
-        "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
       ]
     },
     {
       "type": "Microsoft.Automation/automationAccounts",
       "apiVersion": "2023-11-01",
-      "name": "[parameters('automationAccountName')]",
+      "name": "[variables('automationAccountName')]",
       "location": "[parameters('location')]",
       "identity": {
         "type": "SystemAssigned"
@@ -369,7 +341,7 @@
     {
       "type": "Microsoft.Automation/automationAccounts/runbooks",
       "apiVersion": "2024-10-23",
-      "name": "[format('{0}/{1}', parameters('automationAccountName'), parameters('runbookName'))]",
+      "name": "[format('{0}/{1}', variables('automationAccountName'), variables('runbookName'))]",
       "location": "[parameters('location')]",
       "properties": {
         "description": "Exports Intune configuration to Storage Account as JSON and CSV reports.",
@@ -380,34 +352,34 @@
         "draft": {}
       },
       "dependsOn": [
-        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]"
+        "[resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName'))]"
       ]
     },
     {
       "type": "Microsoft.Authorization/roleAssignments",
       "apiVersion": "2022-04-01",
-      "scope": "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]",
-      "name": "[guid(resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName')), format('{0}-ds-mi', parameters('prefix')), 'automationContributor')]",
+      "scope": "[resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName'))]",
+      "name": "[guid(resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName')), variables('deploymentIdentityName'), 'automationContributor')]",
       "properties": {
         "roleDefinitionId": "[variables('automationContributorRoleId')]",
-        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-ds-mi', parameters('prefix'))), '2023-01-31').principalId]",
+        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('deploymentIdentityName')), '2023-01-31').principalId]",
         "principalType": "ServicePrincipal"
       },
       "dependsOn": [
-        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]",
-        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-ds-mi', parameters('prefix')))]"
+        "[resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName'))]",
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('deploymentIdentityName'))]"
       ]
     },
     {
       "type": "Microsoft.Resources/deploymentScripts",
       "apiVersion": "2023-08-01",
-      "name": "[format('{0}-publish-runbook', parameters('prefix'))]",
+      "name": "[variables('publishRunbookScriptName')]",
       "location": "[parameters('location')]",
       "kind": "AzurePowerShell",
       "identity": {
         "type": "UserAssigned",
         "userAssignedIdentities": {
-          "[format('{0}', resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-ds-mi', parameters('prefix'))))]": {}
+          "[format('{0}', resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('deploymentIdentityName')))]": {}
         }
       },
       "properties": {
@@ -423,11 +395,11 @@
           },
           {
             "name": "AA_NAME",
-            "value": "[parameters('automationAccountName')]"
+            "value": "[variables('automationAccountName')]"
           },
           {
             "name": "RUNBOOK_NAME",
-            "value": "[parameters('runbookName')]"
+            "value": "[variables('runbookName')]"
           },
           {
             "name": "AUTOMATION_API_VERSION",
@@ -441,16 +413,16 @@
         "scriptContent": "[variables('publishRunbookScriptContent')]"
       },
       "dependsOn": [
-        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]",
-        "[extensionResourceId(resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName')), 'Microsoft.Authorization/roleAssignments', guid(resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName')), format('{0}-ds-mi', parameters('prefix')), 'automationContributor'))]",
-        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-ds-mi', parameters('prefix')))]",
-        "[resourceId('Microsoft.Automation/automationAccounts/runbooks', parameters('automationAccountName'), parameters('runbookName'))]"
+        "[resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName'))]",
+        "[extensionResourceId(resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName')), 'Microsoft.Authorization/roleAssignments', guid(resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName')), variables('deploymentIdentityName'), 'automationContributor'))]",
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('deploymentIdentityName'))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/runbooks', variables('automationAccountName'), variables('runbookName'))]"
       ]
     },
     {
       "type": "Microsoft.Logic/workflows",
       "apiVersion": "2019-05-01",
-      "name": "[parameters('logicAppName')]",
+      "name": "[variables('logicAppName')]",
       "location": "[parameters('location')]",
       "identity": {
         "type": "SystemAssigned"
@@ -469,16 +441,16 @@
             "value": "[resourceGroup().name]"
           },
           "automationAccountName": {
-            "value": "[parameters('automationAccountName')]"
+            "value": "[variables('automationAccountName')]"
           },
           "runbookName": {
-            "value": "[parameters('runbookName')]"
+            "value": "[variables('runbookName')]"
           },
           "storageAccountName": {
-            "value": "[parameters('storageAccountName')]"
+            "value": "[variables('storageAccountName')]"
           },
           "storageContainerName": {
-            "value": "[parameters('storageContainerName')]"
+            "value": "[variables('storageContainerName')]"
           },
           "exportRootPath": {
             "value": "[parameters('exportRootPath')]"
@@ -486,71 +458,83 @@
         }
       },
       "dependsOn": [
-        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]",
-        "[resourceId('Microsoft.Resources/deploymentScripts', format('{0}-publish-runbook', parameters('prefix')))]",
-        "[resourceId('Microsoft.Automation/automationAccounts/runbooks', parameters('automationAccountName'), parameters('runbookName'))]",
-        "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
+        "[resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName'))]",
+        "[resourceId('Microsoft.Resources/deploymentScripts', variables('publishRunbookScriptName'))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/runbooks', variables('automationAccountName'), variables('runbookName'))]",
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
       ]
     },
     {
       "type": "Microsoft.Authorization/roleAssignments",
       "apiVersion": "2022-04-01",
-      "scope": "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]",
-      "name": "[guid(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), parameters('automationAccountName'), 'storageBlobDataContributor')]",
+      "scope": "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]",
+      "name": "[guid(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), variables('automationAccountName'), 'storageBlobDataContributor')]",
       "properties": {
         "roleDefinitionId": "[variables('storageBlobDataContributorRoleId')]",
-        "principalId": "[reference(resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName')), '2023-11-01', 'full').identity.principalId]",
+        "principalId": "[reference(resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName')), '2023-11-01', 'full').identity.principalId]",
         "principalType": "ServicePrincipal"
       },
       "dependsOn": [
-        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]",
-        "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
+        "[resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName'))]",
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
       ]
     },
     {
       "type": "Microsoft.Authorization/roleAssignments",
       "apiVersion": "2022-04-01",
-      "scope": "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]",
-      "name": "[guid(resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName')), parameters('logicAppName'), 'automationJobOperator')]",
+      "scope": "[resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName'))]",
+      "name": "[guid(resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName')), variables('logicAppName'), 'automationJobOperator')]",
       "properties": {
         "roleDefinitionId": "[variables('automationJobOperatorRoleId')]",
-        "principalId": "[reference(resourceId('Microsoft.Logic/workflows', parameters('logicAppName')), '2019-05-01', 'full').identity.principalId]",
+        "principalId": "[reference(resourceId('Microsoft.Logic/workflows', variables('logicAppName')), '2019-05-01', 'full').identity.principalId]",
         "principalType": "ServicePrincipal"
       },
       "dependsOn": [
-        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]",
-        "[resourceId('Microsoft.Logic/workflows', parameters('logicAppName'))]"
+        "[resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName'))]",
+        "[resourceId('Microsoft.Logic/workflows', variables('logicAppName'))]"
       ]
     }
   ],
   "outputs": {
     "storageAccountResourceId": {
       "type": "string",
-      "value": "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
+      "value": "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
+    },
+    "storageAccountNameOut": {
+      "type": "string",
+      "value": "[variables('storageAccountName')]"
     },
     "storageContainer": {
       "type": "string",
-      "value": "[parameters('storageContainerName')]"
+      "value": "[variables('storageContainerName')]"
     },
     "automationAccountResourceId": {
       "type": "string",
-      "value": "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]"
+      "value": "[resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName'))]"
+    },
+    "automationAccountNameOut": {
+      "type": "string",
+      "value": "[variables('automationAccountName')]"
     },
     "automationPrincipalId": {
       "type": "string",
-      "value": "[reference(resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName')), '2023-11-01', 'full').identity.principalId]"
+      "value": "[reference(resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName')), '2023-11-01', 'full').identity.principalId]"
     },
     "runbookNameOut": {
       "type": "string",
-      "value": "[parameters('runbookName')]"
+      "value": "[variables('runbookName')]"
     },
     "logicAppResourceId": {
       "type": "string",
-      "value": "[resourceId('Microsoft.Logic/workflows', parameters('logicAppName'))]"
+      "value": "[resourceId('Microsoft.Logic/workflows', variables('logicAppName'))]"
+    },
+    "logicAppNameOut": {
+      "type": "string",
+      "value": "[variables('logicAppName')]"
     },
     "logicAppPrincipalId": {
       "type": "string",
-      "value": "[reference(resourceId('Microsoft.Logic/workflows', parameters('logicAppName')), '2019-05-01', 'full').identity.principalId]"
+      "value": "[reference(resourceId('Microsoft.Logic/workflows', variables('logicAppName')), '2019-05-01', 'full').identity.principalId]"
     }
   }
 }

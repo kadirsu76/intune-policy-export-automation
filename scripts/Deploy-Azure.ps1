@@ -6,22 +6,13 @@ param(
     [string]$Location = "westeurope",
 
     [Parameter(Mandatory = $false)]
-    [string]$Prefix = "intunex",
-
-    [Parameter(Mandatory = $false)]
-    [string]$StorageAccountName = "",
+    [string]$BaseName = "intunex",
 
     [Parameter(Mandatory = $false)]
     [int]$RetentionDays = 365,
 
     [Parameter(Mandatory = $false)]
-    [string]$AutomationAccountName = "",
-
-    [Parameter(Mandatory = $false)]
-    [string]$LogicAppName = "",
-
-    [Parameter(Mandatory = $false)]
-    [string]$RunbookName = "Export-IntuneConfiguration"
+    [string]$ExportRootPath = "daily"
 )
 
 Set-StrictMode -Version Latest
@@ -56,26 +47,12 @@ catch {
 Write-Host "Ensuring resource group exists..."
 az group create --name $ResourceGroupName --location $Location --output none | Out-Null
 
-if ([string]::IsNullOrWhiteSpace($AutomationAccountName)) {
-    $AutomationAccountName = "$Prefix-aa"
-}
-
-if ([string]::IsNullOrWhiteSpace($LogicAppName)) {
-    $LogicAppName = "$Prefix-la"
-}
-
 $parameters = @(
-    "prefix=$Prefix"
+    "baseName=$BaseName"
     "location=$Location"
     "retentionDays=$RetentionDays"
-    "automationAccountName=$AutomationAccountName"
-    "logicAppName=$LogicAppName"
-    "runbookName=$RunbookName"
+    "exportRootPath=$ExportRootPath"
 )
-
-if (-not [string]::IsNullOrWhiteSpace($StorageAccountName)) {
-    $parameters += "storageAccountName=$StorageAccountName"
-}
 
 Write-Host "Deploying infrastructure from $templateFile"
 az deployment group create `

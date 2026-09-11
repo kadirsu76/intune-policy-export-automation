@@ -3,7 +3,7 @@
 ## Components
 
 1. **Logic App (Consumption)**
-   - Daily schedule trigger (03:00 Europe/Istanbul)
+   - Daily schedule trigger (00:00 UTC)
    - Starts Automation runbook job via ARM REST API
    - Polls job status until terminal state
    - Fails workflow on failed/suspended/stopped runbook job

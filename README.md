@@ -2,7 +2,7 @@
 
 Daily Intune configuration export automation with:
 
-- Logic App (Consumption) scheduler (03:00 Europe/Istanbul)
+- Logic App (Consumption) scheduler (daily 00:00 UTC)
 - Azure Automation PowerShell 7.2 runbook (managed identity)
 - Azure Storage Account blob archive (JSON + CSV + manifest)
 
@@ -62,8 +62,16 @@ Platform folders include:
 1. Deploy Azure resources:
 
 ```powershell
-pwsh ./scripts/Deploy-Azure.ps1 -ResourceGroupName rg-intune-export -Location westeurope -Prefix intunex -RetentionDays 365
+pwsh ./scripts/Deploy-Azure.ps1 -ResourceGroupName rg-intune-export -Location westeurope -BaseName intunex -RetentionDays 365
 ```
+
+Resource names are derived automatically from `BaseName`:
+
+- Logic App: `la-<basename>`
+- Automation Account: `aa-<basename>`
+- Runbook: `rb-<basename>-export`
+- Storage Container: `<basename>-exports`
+- Storage Account: auto-generated (`st<uniqueString>`) and returned as deployment output
 
 Optional pre-check:
 
@@ -74,13 +82,13 @@ pwsh ./scripts/Test-Prerequisites.ps1
 2. Grant Graph application permissions to Automation managed identity:
 
 ```powershell
-pwsh ./scripts/Grant-GraphPermissions.ps1 -ResourceGroupName rg-intune-export -AutomationAccountName intunex-aa
+pwsh ./scripts/Grant-GraphPermissions.ps1 -ResourceGroupName rg-intune-export -BaseName intunex
 ```
 
 Alternative alias command:
 
 ```powershell
-pwsh ./scripts/Grant-Permissions.ps1 -ResourceGroupName rg-intune-export -AutomationAccountName intunex-aa
+pwsh ./scripts/Grant-Permissions.ps1 -ResourceGroupName rg-intune-export -BaseName intunex
 ```
 
 3. Wait a few minutes for managed identity token cache refresh.

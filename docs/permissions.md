@@ -15,7 +15,7 @@
 Run:
 
 ```powershell
-pwsh ./scripts/Grant-GraphPermissions.ps1 -ResourceGroupName <rg> -AutomationAccountName <automationAccount>
+pwsh ./scripts/Grant-GraphPermissions.ps1 -ResourceGroupName <rg> -BaseName <basename>
 ```
 
 Default app roles granted:

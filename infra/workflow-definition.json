@@ -34,10 +34,10 @@
       "recurrence": {
         "frequency": "Day",
         "interval": 1,
-        "timeZone": "Europe/Istanbul",
+        "timeZone": "UTC",
         "schedule": {
           "hours": [
-            3
+            0
           ],
           "minutes": [
             0

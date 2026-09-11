@@ -2,8 +2,11 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$ResourceGroupName,
 
-    [Parameter(Mandatory = $true)]
+    [Parameter(Mandatory = $false)]
     [string]$AutomationAccountName,
+
+    [Parameter(Mandatory = $false)]
+    [string]$BaseName = 'intunex',
 
     [Parameter(Mandatory = $false)]
     [string[]]$GraphAppPermissions = @(
@@ -17,6 +20,10 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+if ([string]::IsNullOrWhiteSpace($AutomationAccountName)) {
+    $AutomationAccountName = "aa-$($BaseName.ToLowerInvariant())"
+}
 
 function Assert-Module {
     param([string]$Name)

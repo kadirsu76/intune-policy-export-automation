@@ -2,26 +2,8 @@
   "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
   "contentVersion": "1.0.0.0",
   "parameters": {
-    "location": {
-      "value": "westeurope"
-    },
-    "prefix": {
+    "baseName": {
       "value": "intunex"
-    },
-    "automationAccountName": {
-      "value": "intunex-aa"
-    },
-    "logicAppName": {
-      "value": "intunex-la"
-    },
-    "runbookName": {
-      "value": "Export-IntuneConfiguration"
-    },
-    "storageAccountName": {
-      "value": "intunechangeme123"
-    },
-    "storageContainerName": {
-      "value": "intune-exports"
     },
     "exportRootPath": {
       "value": "daily"
