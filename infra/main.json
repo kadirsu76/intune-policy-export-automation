@@ -1,0 +1,556 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.47.16.16243",
+      "templateHash": "16735547839380469628"
+    }
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Resource location"
+      }
+    },
+    "prefix": {
+      "type": "string",
+      "defaultValue": "intunex",
+      "maxLength": 12,
+      "metadata": {
+        "description": "Solution prefix used in resource names"
+      }
+    },
+    "automationAccountName": {
+      "type": "string",
+      "defaultValue": "[format('{0}-aa', parameters('prefix'))]",
+      "metadata": {
+        "description": "Automation account name"
+      }
+    },
+    "logicAppName": {
+      "type": "string",
+      "defaultValue": "[format('{0}-la', parameters('prefix'))]",
+      "metadata": {
+        "description": "Logic App (Consumption) name"
+      }
+    },
+    "runbookName": {
+      "type": "string",
+      "defaultValue": "Export-IntuneConfiguration",
+      "metadata": {
+        "description": "Runbook name"
+      }
+    },
+    "storageAccountName": {
+      "type": "string",
+      "defaultValue": "[toLower(format('intune{0}', uniqueString(resourceGroup().id)))]",
+      "minLength": 3,
+      "maxLength": 24,
+      "metadata": {
+        "description": "Storage account name (3-24 lowercase letters/numbers)"
+      }
+    },
+    "storageContainerName": {
+      "type": "string",
+      "defaultValue": "intune-exports",
+      "metadata": {
+        "description": "Blob container name"
+      }
+    },
+    "exportRootPath": {
+      "type": "string",
+      "defaultValue": "daily",
+      "minLength": 1,
+      "metadata": {
+        "description": "Blob root path prefix"
+      }
+    },
+    "retentionDays": {
+      "type": "int",
+      "defaultValue": 365,
+      "minValue": 30,
+      "maxValue": 3650,
+      "metadata": {
+        "description": "Retention in days for lifecycle cleanup"
+      }
+    }
+  },
+  "variables": {
+    "$fxv#0": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "automationApiVersion": {
+          "type": "String",
+          "defaultValue": "2024-10-23"
+        },
+        "subscriptionId": {
+          "type": "String"
+        },
+        "resourceGroupName": {
+          "type": "String"
+        },
+        "automationAccountName": {
+          "type": "String"
+        },
+        "runbookName": {
+          "type": "String"
+        },
+        "storageAccountName": {
+          "type": "String"
+        },
+        "storageContainerName": {
+          "type": "String"
+        },
+        "exportRootPath": {
+          "type": "String"
+        }
+      },
+      "triggers": {
+        "Recurrence": {
+          "type": "Recurrence",
+          "recurrence": {
+            "frequency": "Day",
+            "interval": 1,
+            "timeZone": "Europe/Istanbul",
+            "schedule": {
+              "hours": [
+                3
+              ],
+              "minutes": [
+                0
+              ]
+            }
+          }
+        }
+      },
+      "actions": {
+        "Create_Job": {
+          "type": "Http",
+          "inputs": {
+            "method": "PUT",
+            "uri": "@{concat('https://management.azure.com/subscriptions/', parameters('subscriptionId'), '/resourceGroups/', parameters('resourceGroupName'), '/providers/Microsoft.Automation/automationAccounts/', parameters('automationAccountName'), '/jobs/', guid(workflow().run.name), '?api-version=', parameters('automationApiVersion'))}",
+            "headers": {
+              "Content-Type": "application/json"
+            },
+            "authentication": {
+              "type": "ManagedServiceIdentity",
+              "audience": "https://management.azure.com/"
+            },
+            "body": {
+              "properties": {
+                "runbook": {
+                  "name": "@{parameters('runbookName')}"
+                },
+                "parameters": {
+                  "StorageAccountName": "@{parameters('storageAccountName')}",
+                  "StorageContainerName": "@{parameters('storageContainerName')}",
+                  "ExportRootPath": "@{parameters('exportRootPath')}"
+                }
+              }
+            }
+          },
+          "runAfter": {}
+        },
+        "Initialize_JobStatus": {
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "JobStatus",
+                "type": "string",
+                "value": "@{body('Create_Job')?['properties']?['status']}"
+              }
+            ]
+          },
+          "runAfter": {
+            "Create_Job": [
+              "Succeeded"
+            ]
+          }
+        },
+        "Wait_For_Job": {
+          "type": "Until",
+          "expression": "@or(equals(variables('JobStatus'), 'Completed'), equals(variables('JobStatus'), 'Failed'), equals(variables('JobStatus'), 'Stopped'), equals(variables('JobStatus'), 'Suspended'), equals(variables('JobStatus'), 'Blocked'))",
+          "limit": {
+            "count": 240,
+            "timeout": "PT4H"
+          },
+          "actions": {
+            "Delay_30s": {
+              "type": "Wait",
+              "inputs": {
+                "interval": {
+                  "count": 30,
+                  "unit": "Second"
+                }
+              }
+            },
+            "Get_Job": {
+              "type": "Http",
+              "inputs": {
+                "method": "GET",
+                "uri": "@{concat('https://management.azure.com/subscriptions/', parameters('subscriptionId'), '/resourceGroups/', parameters('resourceGroupName'), '/providers/Microsoft.Automation/automationAccounts/', parameters('automationAccountName'), '/jobs/', guid(workflow().run.name), '?api-version=', parameters('automationApiVersion'))}",
+                "authentication": {
+                  "type": "ManagedServiceIdentity",
+                  "audience": "https://management.azure.com/"
+                }
+              },
+              "runAfter": {
+                "Delay_30s": [
+                  "Succeeded"
+                ]
+              }
+            },
+            "Set_JobStatus": {
+              "type": "SetVariable",
+              "inputs": {
+                "name": "JobStatus",
+                "value": "@{body('Get_Job')?['properties']?['status']}"
+              },
+              "runAfter": {
+                "Get_Job": [
+                  "Succeeded"
+                ]
+              }
+            }
+          },
+          "runAfter": {
+            "Initialize_JobStatus": [
+              "Succeeded"
+            ]
+          }
+        },
+        "Job_Result": {
+          "type": "If",
+          "expression": {
+            "equals": [
+              "@variables('JobStatus')",
+              "Completed"
+            ]
+          },
+          "actions": {
+            "Return_Success": {
+              "type": "Compose",
+              "inputs": {
+                "status": "Completed",
+                "message": "Intune export runbook completed.",
+                "jobId": "@{body('Create_Job')?['properties']?['jobId']}"
+              }
+            }
+          },
+          "else": {
+            "actions": {
+              "Fail_Workflow": {
+                "type": "Terminate",
+                "inputs": {
+                  "runStatus": "Failed",
+                  "runError": {
+                    "code": "RunbookJobFailed",
+                    "message": "@{concat('Runbook job status: ', variables('JobStatus'))}"
+                  }
+                }
+              }
+            }
+          },
+          "runAfter": {
+            "Wait_For_Job": [
+              "Succeeded"
+            ]
+          }
+        }
+      },
+      "outputs": {}
+    },
+    "$fxv#1": "param(\n    [Parameter(Mandatory = $true)]\n    [string]$StorageAccountName,\n\n    [Parameter(Mandatory = $false)]\n    [string]$StorageContainerName = \"intune-exports\",\n\n    [Parameter(Mandatory = $false)]\n    [string]$ExportRootPath = \"daily\",\n\n    [Parameter(Mandatory = $false)]\n    [int]$MaxRetries = 6,\n\n    [Parameter(Mandatory = $false)]\n    [int]$RetryBaseDelaySeconds = 4,\n\n    [Parameter(Mandatory = $false)]\n    [string]$EndpointCatalogJson = \"\"\n)\n\nSet-StrictMode -Version Latest\n$ErrorActionPreference = \"Stop\"\n$ProgressPreference = \"SilentlyContinue\"\n\nfunction Write-Log {\n    param(\n        [Parameter(Mandatory = $true)][string]$Message,\n        [ValidateSet(\"INFO\", \"WARN\", \"ERROR\")][string]$Level = \"INFO\"\n    )\n\n    $stamp = (Get-Date).ToUniversalTime().ToString(\"yyyy-MM-ddTHH:mm:ssZ\")\n    Write-Output \"[$stamp][$Level] $Message\"\n}\n\nfunction Get-EmbeddedCatalog {\n    $json = @'\n[\n  {\n    \"id\": \"settingsCatalog\",\n    \"area\": \"DeviceConfiguration\",\n    \"subcategory\": \"SettingsCatalog\",\n    \"apiVersion\": \"beta\",\n    \"path\": \"/deviceManagement/configurationPolicies?$expand=settings\",\n    \"assignmentPathTemplate\": \"/deviceManagement/configurationPolicies/{id}/assignments\"\n  },\n  {\n    \"id\": \"deviceConfigurations\",\n    \"area\": \"DeviceConfiguration\",\n    \"subcategory\": \"DeviceConfigurations\",\n    \"apiVersion\": \"beta\",\n    \"path\": \"/deviceManagement/deviceConfigurations\",\n    \"assignmentPathTemplate\": \"/deviceManagement/deviceConfigurations/{id}/assignments\"\n  },\n  {\n    \"id\": \"groupPolicyConfigurations\",\n    \"area\": \"DeviceConfiguration\",\n    \"subcategory\": \"AdministrativeTemplates\",\n    \"apiVersion\": \"beta\",\n    \"path\": \"/deviceManagement/groupPolicyConfigurations\",\n    \"assignmentPathTemplate\": \"/deviceManagement/groupPolicyConfigurations/{id}/assignments\"\n  },\n  {\n    \"id\": \"deviceCompliancePolicies\",\n    \"area\": \"Compliance\",\n    \"subcategory\": \"CompliancePolicies\",\n    \"apiVersion\": \"beta\",\n    \"path\": \"/deviceManagement/deviceCompliancePolicies\",\n    \"assignmentPathTemplate\": \"/deviceManagement/deviceCompliancePolicies/{id}/assignments\"\n  },\n  {\n    \"id\": \"intents\",\n    \"area\": \"EndpointSecurity\",\n    \"subcategory\": \"SecurityPolicies\",\n    \"apiVersion\": \"beta\",\n    \"path\": \"/deviceManagement/intents\",\n    \"assignmentPathTemplate\": \"/deviceManagement/intents/{id}/assignments\"\n  },\n  {\n    \"id\": \"templates\",\n    \"area\": \"EndpointSecurity\",\n    \"subcategory\": \"Templates\",\n    \"apiVersion\": \"beta\",\n    \"path\": \"/deviceManagement/templates\"\n  },\n  {\n    \"id\": \"deviceManagementScripts\",\n    \"area\": \"Scripts\",\n    \"subcategory\": \"WindowsPowerShellScripts\",\n    \"apiVersion\": \"beta\",\n    \"path\": \"/deviceManagement/deviceManagementScripts\",\n    \"assignmentPathTemplate\": \"/deviceManagement/deviceManagementScripts/{id}/assignments\"\n  },\n  {\n    \"id\": \"deviceShellScripts\",\n    \"area\": \"Scripts\",\n    \"subcategory\": \"macOSShellScripts\",\n    \"apiVersion\": \"beta\",\n    \"path\": \"/deviceManagement/deviceShellScripts\",\n    \"assignmentPathTemplate\": \"/deviceManagement/deviceShellScripts/{id}/assignments\"\n  },\n  {\n    \"id\": \"deviceCustomAttributeShellScripts\",\n    \"area\": \"Scripts\",\n    \"subcategory\": \"CustomAttributeScripts\",\n    \"apiVersion\": \"beta\",\n    \"path\": \"/deviceManagement/deviceCustomAttributeShellScripts\"\n  },\n  {\n    \"id\": \"deviceHealthScripts\",\n    \"area\": \"Scripts\",\n    \"subcategory\": \"ProactiveRemediations\",\n    \"apiVersion\": \"beta\",\n    \"path\": \"/deviceManagement/deviceHealthScripts\",\n    \"assignmentPathTemplate\": \"/deviceManagement/deviceHealthScripts/{id}/assignments\"\n  },\n  {\n    \"id\": \"windowsFeatureUpdateProfiles\",\n    \"area\": \"Updates\",\n    \"subcategory\": \"FeatureUpdates\",\n    \"apiVersion\": \"beta\",\n    \"path\": \"/deviceManagement/windowsFeatureUpdateProfiles\",\n    \"assignmentPathTemplate\": \"/deviceManagement/windowsFeatureUpdateProfiles/{id}/assignments\"\n  },\n  {\n    \"id\": \"windowsQualityUpdateProfiles\",\n    \"area\": \"Updates\",\n    \"subcategory\": \"QualityUpdates\",\n    \"apiVersion\": \"beta\",\n    \"path\": \"/deviceManagement/windowsQualityUpdateProfiles\",\n    \"assignmentPathTemplate\": \"/deviceManagement/windowsQualityUpdateProfiles/{id}/assignments\"\n  },\n  {\n    \"id\": \"windowsDriverUpdateProfiles\",\n    \"area\": \"Updates\",\n    \"subcategory\": \"DriverUpdates\",\n    \"apiVersion\": \"beta\",\n    \"path\": \"/deviceManagement/windowsDriverUpdateProfiles\",\n    \"assignmentPathTemplate\": \"/deviceManagement/windowsDriverUpdateProfiles/{id}/assignments\"\n  },\n  {\n    \"id\": \"deviceEnrollmentConfigurations\",\n    \"area\": \"Enrollment\",\n    \"subcategory\": \"EnrollmentConfigurations\",\n    \"apiVersion\": \"beta\",\n    \"path\": \"/deviceManagement/deviceEnrollmentConfigurations\",\n    \"assignmentPathTemplate\": \"/deviceManagement/deviceEnrollmentConfigurations/{id}/assignments\"\n  },\n  {\n    \"id\": \"windowsAutopilotDeploymentProfiles\",\n    \"area\": \"Enrollment\",\n    \"subcategory\": \"AutopilotDeploymentProfiles\",\n    \"apiVersion\": \"beta\",\n    \"path\": \"/deviceManagement/windowsAutopilotDeploymentProfiles\",\n    \"assignmentPathTemplate\": \"/deviceManagement/windowsAutopilotDeploymentProfiles/{id}/assignments\"\n  },\n  {\n    \"id\": \"deviceEnrollmentNotificationsConfiguration\",\n    \"area\": \"Enrollment\",\n    \"subcategory\": \"EnrollmentNotifications\",\n    \"apiVersion\": \"beta\",\n    \"path\": \"/deviceManagement/deviceEnrollmentNotificationsConfiguration\"\n  },\n  {\n    \"id\": \"deviceCategories\",\n    \"area\": \"Tenant\",\n    \"subcategory\": \"DeviceCategories\",\n    \"apiVersion\": \"beta\",\n    \"path\": \"/deviceManagement/deviceCategories\"\n  },\n  {\n    \"id\": \"assignmentFilters\",\n    \"area\": \"Tenant\",\n    \"subcategory\": \"AssignmentFilters\",\n    \"apiVersion\": \"beta\",\n    \"path\": \"/deviceManagement/assignmentFilters\"\n  },\n  {\n    \"id\": \"roleDefinitions\",\n    \"area\": \"Tenant\",\n    \"subcategory\": \"RBACRoleDefinitions\",\n    \"apiVersion\": \"beta\",\n    \"path\": \"/deviceManagement/roleDefinitions\"\n  },\n  {\n    \"id\": \"roleAssignments\",\n    \"area\": \"Tenant\",\n    \"subcategory\": \"RBACRoleAssignments\",\n    \"apiVersion\": \"beta\",\n    \"path\": \"/deviceManagement/roleAssignments\"\n  },\n  {\n    \"id\": \"scopeTags\",\n    \"area\": \"Tenant\",\n    \"subcategory\": \"ScopeTags\",\n    \"apiVersion\": \"beta\",\n    \"path\": \"/deviceManagement/roleScopeTags\"\n  },\n  {\n    \"id\": \"notificationMessageTemplates\",\n    \"area\": \"Tenant\",\n    \"subcategory\": \"NotificationTemplates\",\n    \"apiVersion\": \"beta\",\n    \"path\": \"/deviceManagement/notificationMessageTemplates\"\n  },\n  {\n    \"id\": \"termsAndConditions\",\n    \"area\": \"Tenant\",\n    \"subcategory\": \"TermsAndConditions\",\n    \"apiVersion\": \"beta\",\n    \"path\": \"/deviceManagement/termsAndConditions\"\n  },\n  {\n    \"id\": \"complianceManagementPartners\",\n    \"area\": \"Tenant\",\n    \"subcategory\": \"CompliancePartners\",\n    \"apiVersion\": \"beta\",\n    \"path\": \"/deviceManagement/complianceManagementPartners\"\n  },\n  {\n    \"id\": \"mobileApps\",\n    \"area\": \"Applications\",\n    \"subcategory\": \"MobileApps\",\n    \"apiVersion\": \"beta\",\n    \"path\": \"/deviceAppManagement/mobileApps\",\n    \"assignmentPathTemplate\": \"/deviceAppManagement/mobileApps/{id}/assignments\"\n  },\n  {\n    \"id\": \"mobileAppConfigurations\",\n    \"area\": \"Applications\",\n    \"subcategory\": \"AppConfigurations\",\n    \"apiVersion\": \"beta\",\n    \"path\": \"/deviceAppManagement/mobileAppConfigurations\",\n    \"assignmentPathTemplate\": \"/deviceAppManagement/mobileAppConfigurations/{id}/assignments\"\n  },\n  {\n    \"id\": \"targetedManagedAppConfigurations\",\n    \"area\": \"Applications\",\n    \"subcategory\": \"ManagedAppConfigurations\",\n    \"apiVersion\": \"beta\",\n    \"path\": \"/deviceAppManagement/targetedManagedAppConfigurations\",\n    \"assignmentPathTemplate\": \"/deviceAppManagement/targetedManagedAppConfigurations/{id}/assignments\"\n  },\n  {\n    \"id\": \"androidManagedAppProtections\",\n    \"area\": \"Applications\",\n    \"subcategory\": \"AppProtectionAndroid\",\n    \"apiVersion\": \"beta\",\n    \"path\": \"/deviceAppManagement/androidManagedAppProtections\",\n    \"assignmentPathTemplate\": \"/deviceAppManagement/androidManagedAppProtections/{id}/assignments\"\n  },\n  {\n    \"id\": \"iosManagedAppProtections\",\n    \"area\": \"Applications\",\n    \"subcategory\": \"AppProtectioniOS\",\n    \"apiVersion\": \"beta\",\n    \"path\": \"/deviceAppManagement/iosManagedAppProtections\",\n    \"assignmentPathTemplate\": \"/deviceAppManagement/iosManagedAppProtections/{id}/assignments\"\n  },\n  {\n    \"id\": \"managedAppPolicies\",\n    \"area\": \"Applications\",\n    \"subcategory\": \"ManagedAppPolicies\",\n    \"apiVersion\": \"beta\",\n    \"path\": \"/deviceAppManagement/managedAppPolicies\"\n  },\n  {\n    \"id\": \"mdmWindowsInformationProtectionPolicies\",\n    \"area\": \"Applications\",\n    \"subcategory\": \"WindowsInformationProtection\",\n    \"apiVersion\": \"beta\",\n    \"path\": \"/deviceAppManagement/mdmWindowsInformationProtectionPolicies\",\n    \"assignmentPathTemplate\": \"/deviceAppManagement/mdmWindowsInformationProtectionPolicies/{id}/assignments\"\n  }\n]\n'@\n\n    return $json | ConvertFrom-Json\n}\n\nfunction Get-SafeName {\n    param([string]$Name)\n\n    $value = if ([string]::IsNullOrWhiteSpace($Name)) { \"Unnamed\" } else { $Name.Trim() }\n    $value = $value -replace '[\\\\/:*?\"<>|]', \"_\"\n    $value = $value -replace '\\s+', \" \"\n    if ($value.Length -gt 100) {\n        $value = $value.Substring(0, 100)\n    }\n    return $value.Trim()\n}\n\nfunction Resolve-ItemName {\n    param([object]$Item)\n\n    foreach ($key in @(\"name\", \"displayName\", \"title\")) {\n        $value = Get-PropertyIfExists -Item $Item -PropertyName $key\n        if ($null -ne $value -and -not [string]::IsNullOrWhiteSpace([string]$value)) {\n            return [string]$value\n        }\n    }\n\n    $itemId = Get-PropertyIfExists -Item $Item -PropertyName \"id\"\n    if ($null -ne $itemId) {\n        return [string]$itemId\n    }\n\n    return \"Unnamed\"\n}\n\nfunction Get-PropertyIfExists {\n    param(\n        [object]$Item,\n        [string]$PropertyName\n    )\n\n    if ($null -eq $Item) {\n        return $null\n    }\n\n    if ($Item.PSObject.Properties.Name -contains $PropertyName) {\n        return $Item.$PropertyName\n    }\n\n    return $null\n}\n\nfunction Resolve-PlatformFolder {\n    param(\n        [string]$Area,\n        [object]$Item\n    )\n\n    if ($Area -eq \"Tenant\") {\n        return \"Tenant\"\n    }\n\n    $sources = [System.Collections.Generic.List[string]]::new()\n\n    $platforms = Get-PropertyIfExists -Item $Item -PropertyName \"platforms\"\n    if ($platforms -is [System.Array]) {\n        foreach ($p in $platforms) {\n            if ($null -ne $p) {\n                $sources.Add([string]$p)\n            }\n        }\n    }\n    elseif ($null -ne $platforms) {\n        $sources.Add([string]$platforms)\n    }\n\n    foreach ($propertyName in @(\"platform\", \"platformType\", \"devicePlatform\", \"osPlatform\", \"operatingSystem\")) {\n        $value = Get-PropertyIfExists -Item $Item -PropertyName $propertyName\n        if ($null -ne $value) {\n            $sources.Add([string]$value)\n        }\n    }\n\n    $odataType = Get-PropertyIfExists -Item $Item -PropertyName \"@odata.type\"\n    if ($null -ne $odataType) {\n        $sources.Add([string]$odataType)\n    }\n\n    $normalized = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)\n    foreach ($entry in $sources) {\n        $text = ([string]$entry).ToLowerInvariant()\n        if ($text.Contains(\"windows\")) { [void]$normalized.Add(\"Windows\") }\n        if ($text.Contains(\"linux\")) { [void]$normalized.Add(\"Linux\") }\n        if ($text.Contains(\"mac\") -or $text.Contains(\"osx\")) { [void]$normalized.Add(\"macOS\") }\n        if ($text.Contains(\"ios\") -or $text.Contains(\"ipad\")) { [void]$normalized.Add(\"iOS-iPadOS\") }\n        if ($text.Contains(\"android\")) { [void]$normalized.Add(\"Android\") }\n    }\n\n    if ($normalized.Count -eq 0) {\n        return \"Unknown\"\n    }\n\n    if ($normalized.Count -gt 1) {\n        return \"MultiPlatform\"\n    }\n\n    return ($normalized | Select-Object -First 1)\n}\n\nfunction Resolve-StatusCode {\n    param([System.Management.Automation.ErrorRecord]$ErrorRecord)\n\n    try {\n        if ($null -ne $ErrorRecord.Exception.Response -and $null -ne $ErrorRecord.Exception.Response.StatusCode) {\n            return [int]$ErrorRecord.Exception.Response.StatusCode\n        }\n    }\n    catch {\n        return $null\n    }\n\n    return $null\n}\n\nfunction Resolve-RetryAfterSeconds {\n    param([System.Management.Automation.ErrorRecord]$ErrorRecord)\n\n    try {\n        $headers = $ErrorRecord.Exception.Response.Headers\n        if ($null -eq $headers) {\n            return 0\n        }\n\n        $retryAfter = $headers[\"Retry-After\"]\n        if ($null -eq $retryAfter) {\n            return 0\n        }\n\n        $candidate = $retryAfter | Select-Object -First 1\n        if ($candidate -match \"^\\d+$\") {\n            return [int]$candidate\n        }\n    }\n    catch {\n        return 0\n    }\n\n    return 0\n}\n\n$script:GraphToken = $null\n$script:GraphTokenExpiresOn = (Get-Date).ToUniversalTime().AddMinutes(-1)\n\nfunction Get-GraphToken {\n    $now = (Get-Date).ToUniversalTime()\n    if ($null -ne $script:GraphToken -and $script:GraphTokenExpiresOn -gt $now.AddMinutes(5)) {\n        return $script:GraphToken\n    }\n\n    $tokenResponse = Get-AzAccessToken -ResourceUrl \"https://graph.microsoft.com\" -ErrorAction Stop\n    $script:GraphToken = $tokenResponse.Token\n    $script:GraphTokenExpiresOn = $tokenResponse.ExpiresOn.UtcDateTime\n    return $script:GraphToken\n}\n\nfunction Invoke-GraphGet {\n    param(\n        [Parameter(Mandatory = $true)][string]$Uri,\n        [Parameter(Mandatory = $false)][switch]$AllowNotFound\n    )\n\n    for ($attempt = 1; $attempt -le $MaxRetries; $attempt++) {\n        try {\n            $token = Get-GraphToken\n            return Invoke-RestMethod -Method GET -Uri $Uri -Headers @{ Authorization = \"Bearer $token\" } -ContentType \"application/json\"\n        }\n        catch {\n            $statusCode = Resolve-StatusCode -ErrorRecord $_\n            if ($AllowNotFound.IsPresent -and $statusCode -eq 404) {\n                return $null\n            }\n\n            $isRetryable = $statusCode -in @(408, 429, 500, 502, 503, 504)\n            if (-not $isRetryable -or $attempt -eq $MaxRetries) {\n                throw\n            }\n\n            $retryAfter = Resolve-RetryAfterSeconds -ErrorRecord $_\n            if ($retryAfter -le 0) {\n                $retryAfter = [math]::Min(120, $RetryBaseDelaySeconds * [math]::Pow(2, $attempt - 1))\n            }\n\n            Write-Log -Message \"Graph retry $attempt/$MaxRetries for $Uri (status $statusCode). Waiting $retryAfter seconds.\" -Level \"WARN\"\n            Start-Sleep -Seconds $retryAfter\n        }\n    }\n}\n\nfunction Get-GraphCollection {\n    param(\n        [Parameter(Mandatory = $true)][string]$ApiVersion,\n        [Parameter(Mandatory = $true)][string]$Path,\n        [Parameter(Mandatory = $false)][switch]$AllowNotFound\n    )\n\n    $items = [System.Collections.Generic.List[object]]::new()\n    $nextUri = \"https://graph.microsoft.com/$ApiVersion$Path\"\n\n    while (-not [string]::IsNullOrWhiteSpace($nextUri)) {\n        $response = Invoke-GraphGet -Uri $nextUri -AllowNotFound:$AllowNotFound.IsPresent\n        if ($null -eq $response) {\n            break\n        }\n\n        if ($response.PSObject.Properties.Name -contains \"value\") {\n            foreach ($item in $response.value) {\n                [void]$items.Add($item)\n            }\n            $nextUri = $response.'@odata.nextLink'\n        }\n        else {\n            [void]$items.Add($response)\n            $nextUri = $null\n        }\n    }\n\n    return $items\n}\n\nfunction Get-SettingCount {\n    param([object]$Item)\n\n    $settings = Get-PropertyIfExists -Item $Item -PropertyName \"settings\"\n    if ($settings -is [System.Array]) {\n        return $settings.Count\n    }\n    if ($null -eq $settings) {\n        return 0\n    }\n    return 1\n}\n\nfunction Resolve-AssignmentTarget {\n    param(\n        [object]$Assignment,\n        [hashtable]$GroupCache\n    )\n\n    $target = Get-PropertyIfExists -Item $Assignment -PropertyName \"target\"\n    if ($null -eq $target) {\n        return [pscustomobject]@{\n            TargetType = \"Unknown\"\n            TargetValue = \"Unknown\"\n            GroupId = \"\"\n            GroupName = \"\"\n            IncludeExclude = \"Unknown\"\n            FilterId = \"\"\n            FilterType = \"\"\n        }\n    }\n\n    $odataType = [string](Get-PropertyIfExists -Item $target -PropertyName \"@odata.type\")\n    $groupId = [string](Get-PropertyIfExists -Item $target -PropertyName \"groupId\")\n    $filterId = [string](Get-PropertyIfExists -Item $target -PropertyName \"deviceAndAppManagementAssignmentFilterId\")\n    $filterType = [string](Get-PropertyIfExists -Item $target -PropertyName \"deviceAndAppManagementAssignmentFilterType\")\n\n    $includeExclude = if ($odataType.ToLowerInvariant().Contains(\"exclusion\")) { \"Exclude\" } else { \"Include\" }\n    $targetType = \"Unknown\"\n    $targetValue = \"Unknown\"\n    $groupName = \"\"\n\n    switch -Regex ($odataType.ToLowerInvariant()) {\n        \"allusers\" {\n            $targetType = \"AllUsers\"\n            $targetValue = \"All Users\"\n            break\n        }\n        \"alldevices\" {\n            $targetType = \"AllDevices\"\n            $targetValue = \"All Devices\"\n            break\n        }\n        \"group\" {\n            $targetType = \"Group\"\n            $targetValue = $groupId\n            if (-not [string]::IsNullOrWhiteSpace($groupId)) {\n                if (-not $GroupCache.ContainsKey($groupId)) {\n                    $groupUri = \"https://graph.microsoft.com/v1.0/groups/$groupId?`$select=id,displayName\"\n                    $groupResult = Invoke-GraphGet -Uri $groupUri -AllowNotFound\n                    $resolvedGroupName = [string](Get-PropertyIfExists -Item $groupResult -PropertyName \"displayName\")\n                    $GroupCache[$groupId] = if (-not [string]::IsNullOrWhiteSpace($resolvedGroupName)) { $resolvedGroupName } else { \"\" }\n                }\n                $groupName = [string]$GroupCache[$groupId]\n            }\n            break\n        }\n        default {\n            $targetType = if ([string]::IsNullOrWhiteSpace($odataType)) { \"Unknown\" } else { $odataType }\n            $targetValue = $targetType\n            break\n        }\n    }\n\n    return [pscustomobject]@{\n        TargetType = $targetType\n        TargetValue = $targetValue\n        GroupId = $groupId\n        GroupName = $groupName\n        IncludeExclude = $includeExclude\n        FilterId = $filterId\n        FilterType = $filterType\n    }\n}\n\nfunction Normalize-RelativePath {\n    param([string]$Path)\n    return ($Path -replace \"\\\\\", \"/\").TrimStart(\"/\")\n}\n\nWrite-Log -Message \"Runbook started. Authenticating with managed identity.\"\nConnect-AzAccount -Identity -ErrorAction Stop | Out-Null\n$context = Get-AzContext\n$tenantId = $context.Tenant.Id\n\n$catalog = $null\nif (-not [string]::IsNullOrWhiteSpace($EndpointCatalogJson)) {\n    $catalog = $EndpointCatalogJson | ConvertFrom-Json\n    Write-Log -Message \"Endpoint catalog loaded from parameter.\"\n}\nelseif (Test-Path -Path (Join-Path $PSScriptRoot \"endpoint-catalog.json\")) {\n    $catalog = Get-Content -Path (Join-Path $PSScriptRoot \"endpoint-catalog.json\") -Raw | ConvertFrom-Json\n    Write-Log -Message \"Endpoint catalog loaded from local endpoint-catalog.json.\"\n}\nelse {\n    $catalog = Get-EmbeddedCatalog\n    Write-Log -Message \"Endpoint catalog loaded from embedded default catalog.\"\n}\n\n$runId = [guid]::NewGuid().ToString()\n$startedUtc = (Get-Date).ToUniversalTime()\n$datePath = \"{0}/{1}/{2}\" -f $startedUtc.ToString(\"yyyy\"), $startedUtc.ToString(\"MM\"), $startedUtc.ToString(\"dd\")\n$runFolder = \"{0}-{1}\" -f $startedUtc.ToString(\"yyyyMMddTHHmmssZ\"), $runId\n\n$rootPrefix = $ExportRootPath.Trim(\"/\")\n$relativeRoot = if ([string]::IsNullOrWhiteSpace($rootPrefix)) {\n    \"$datePath/$runFolder\"\n}\nelse {\n    \"$rootPrefix/$datePath/$runFolder\"\n}\n\n$tempRoot = Join-Path $env:TEMP (\"intune-policy-export-\" + $runId)\nNew-Item -Path $tempRoot -ItemType Directory -Force | Out-Null\n\n$reportsFolder = Join-Path $tempRoot \"Reports\"\nNew-Item -Path $reportsFolder -ItemType Directory -Force | Out-Null\n\n$groupCache = @{}\n$exportRows = [System.Collections.Generic.List[object]]::new()\n$assignmentRows = [System.Collections.Generic.List[object]]::new()\n$summaryRows = [System.Collections.Generic.List[object]]::new()\n$errorRows = [System.Collections.Generic.List[object]]::new()\n\n$stats = [ordered]@{\n    EndpointsTotal = 0\n    EndpointsSuccess = 0\n    EndpointsFailed = 0\n    ItemsExported = 0\n    AssignmentRows = 0\n    Errors = 0\n}\n\nforeach ($endpoint in $catalog) {\n    $stats.EndpointsTotal++\n    $endpointName = \"$($endpoint.area)/$($endpoint.subcategory)\"\n    $endpointStart = Get-Date\n    $itemCount = 0\n    $itemErrors = 0\n\n    try {\n        Write-Log -Message \"Exporting endpoint: $endpointName ($($endpoint.path))\"\n        $items = Get-GraphCollection -ApiVersion $endpoint.apiVersion -Path $endpoint.path\n\n        foreach ($item in $items) {\n            try {\n                $itemId = if ($null -ne (Get-PropertyIfExists -Item $item -PropertyName \"id\")) { [string]$item.id } else { [guid]::NewGuid().ToString() }\n                $itemName = Resolve-ItemName -Item $item\n                $safeName = Get-SafeName -Name $itemName\n                $safeId = Get-SafeName -Name $itemId\n                $platformFolder = Resolve-PlatformFolder -Area $endpoint.area -Item $item\n                $settingCount = Get-SettingCount -Item $item\n\n                $relativeFolder = Normalize-RelativePath -Path \"$platformFolder/$($endpoint.area)/$($endpoint.subcategory)\"\n                $fullFolder = Join-Path $tempRoot ($relativeFolder -replace \"/\", [IO.Path]::DirectorySeparatorChar)\n                New-Item -Path $fullFolder -ItemType Directory -Force | Out-Null\n\n                $fileName = \"$safeName--$safeId.json\"\n                $localFilePath = Join-Path $fullFolder $fileName\n                $item | ConvertTo-Json -Depth 100 | Set-Content -Path $localFilePath -Encoding UTF8\n\n                $relativeFilePath = Normalize-RelativePath -Path \"$relativeFolder/$fileName\"\n                $blobPath = Normalize-RelativePath -Path \"$relativeRoot/$relativeFilePath\"\n\n                $assignments = @()\n                if (-not [string]::IsNullOrWhiteSpace([string]$endpoint.assignmentPathTemplate)) {\n                    $assignmentPath = [string]$endpoint.assignmentPathTemplate\n                    $assignmentPath = $assignmentPath.Replace(\"{id}\", $itemId)\n                    try {\n                        $assignments = Get-GraphCollection -ApiVersion $endpoint.apiVersion -Path $assignmentPath -AllowNotFound\n                    }\n                    catch {\n                        $itemErrors++\n                        $stats.Errors++\n                        $errorRows.Add([pscustomobject]@{\n                                TimestampUtc = (Get-Date).ToUniversalTime().ToString(\"o\")\n                                Level = \"AssignmentError\"\n                                Endpoint = $endpointName\n                                ObjectId = $itemId\n                                ObjectName = $itemName\n                                Uri = \"https://graph.microsoft.com/$($endpoint.apiVersion)$assignmentPath\"\n                                Message = $_.Exception.Message\n                            })\n                    }\n                }\n\n                foreach ($assignment in $assignments) {\n                    $target = Resolve-AssignmentTarget -Assignment $assignment -GroupCache $groupCache\n                    $assignmentId = if ($null -ne (Get-PropertyIfExists -Item $assignment -PropertyName \"id\")) { [string]$assignment.id } else { \"\" }\n\n                    $assignmentRows.Add([pscustomobject]@{\n                            ExportTimestampUtc = $startedUtc.ToString(\"o\")\n                            RunId = $runId\n                            Category = $endpoint.area\n                            Subcategory = $endpoint.subcategory\n                            ObjectName = $itemName\n                            ObjectId = $itemId\n                            AssignmentId = $assignmentId\n                            TargetType = $target.TargetType\n                            TargetValue = $target.TargetValue\n                            GroupId = $target.GroupId\n                            GroupName = $target.GroupName\n                            IncludeExclude = $target.IncludeExclude\n                            FilterId = $target.FilterId\n                            FilterType = $target.FilterType\n                        })\n                }\n\n                $exportRows.Add([pscustomobject]@{\n                        ExportTimestampUtc = $startedUtc.ToString(\"o\")\n                        TenantId = $tenantId\n                        RunId = $runId\n                        Category = $endpoint.area\n                        Subcategory = $endpoint.subcategory\n                        PlatformFolder = $platformFolder\n                        Name = $itemName\n                        Id = $itemId\n                        ApiVersion = $endpoint.apiVersion\n                        EndpointPath = $endpoint.path\n                        SettingCount = $settingCount\n                        AssignmentCount = $assignments.Count\n                        CreatedDateTime = [string](Get-PropertyIfExists -Item $item -PropertyName \"createdDateTime\")\n                        LastModifiedDateTime = [string](Get-PropertyIfExists -Item $item -PropertyName \"lastModifiedDateTime\")\n                        FilePath = $blobPath\n                        Status = \"Exported\"\n                        ErrorMessage = \"\"\n                    })\n\n                $itemCount++\n                $stats.ItemsExported++\n                $stats.AssignmentRows += $assignments.Count\n            }\n            catch {\n                $itemErrors++\n                $stats.Errors++\n                $errorRows.Add([pscustomobject]@{\n                        TimestampUtc = (Get-Date).ToUniversalTime().ToString(\"o\")\n                        Level = \"ItemError\"\n                        Endpoint = $endpointName\n                        ObjectId = [string](Get-PropertyIfExists -Item $item -PropertyName \"id\")\n                        ObjectName = [string](Resolve-ItemName -Item $item)\n                        Uri = \"https://graph.microsoft.com/$($endpoint.apiVersion)$($endpoint.path)\"\n                        Message = $_.Exception.Message\n                    })\n            }\n        }\n\n        $stats.EndpointsSuccess++\n    }\n    catch {\n        $stats.EndpointsFailed++\n        $stats.Errors++\n        $errorRows.Add([pscustomobject]@{\n                TimestampUtc = (Get-Date).ToUniversalTime().ToString(\"o\")\n                Level = \"EndpointError\"\n                Endpoint = $endpointName\n                ObjectId = \"\"\n                ObjectName = \"\"\n                Uri = \"https://graph.microsoft.com/$($endpoint.apiVersion)$($endpoint.path)\"\n                Message = $_.Exception.Message\n            })\n    }\n\n    $elapsed = [math]::Round(((Get-Date) - $endpointStart).TotalSeconds, 2)\n    $summaryRows.Add([pscustomobject]@{\n            ExportTimestampUtc = $startedUtc.ToString(\"o\")\n            RunId = $runId\n            Category = $endpoint.area\n            Subcategory = $endpoint.subcategory\n            ApiVersion = $endpoint.apiVersion\n            EndpointPath = $endpoint.path\n            ExportedItemCount = $itemCount\n            ItemErrors = $itemErrors\n            DurationSeconds = $elapsed\n            Status = if ($itemErrors -gt 0) { \"Partial\" } else { \"Success\" }\n        })\n}\n\n$allPoliciesCsv = Join-Path $reportsFolder \"All-Policies.csv\"\n$summaryCsv = Join-Path $reportsFolder \"Export-Summary.csv\"\n$errorsCsv = Join-Path $reportsFolder \"Export-Errors.csv\"\n$assignmentsCsv = Join-Path $reportsFolder \"Assignments.csv\"\n$manifestJson = Join-Path $reportsFolder \"manifest.json\"\n\n$exportRows | Export-Csv -Path $allPoliciesCsv -NoTypeInformation -Encoding UTF8\n$summaryRows | Export-Csv -Path $summaryCsv -NoTypeInformation -Encoding UTF8\n$errorRows | Export-Csv -Path $errorsCsv -NoTypeInformation -Encoding UTF8\n$assignmentRows | Export-Csv -Path $assignmentsCsv -NoTypeInformation -Encoding UTF8\n\n$finishedUtc = (Get-Date).ToUniversalTime()\n$manifest = [pscustomobject]@{\n    schemaVersion = \"1.0\"\n    runId = $runId\n    tenantId = $tenantId\n    startedUtc = $startedUtc.ToString(\"o\")\n    finishedUtc = $finishedUtc.ToString(\"o\")\n    durationSeconds = [math]::Round(($finishedUtc - $startedUtc).TotalSeconds, 2)\n    storageAccountName = $StorageAccountName\n    storageContainerName = $StorageContainerName\n    blobRoot = $relativeRoot\n    endpointCatalogCount = $catalog.Count\n    stats = $stats\n}\n\n$manifest | ConvertTo-Json -Depth 10 | Set-Content -Path $manifestJson -Encoding UTF8\n\nWrite-Log -Message \"Uploading artifacts to Storage Account $StorageAccountName / container $StorageContainerName\"\nImport-Module Az.Storage -ErrorAction Stop\n\n$storageContext = New-AzStorageContext -StorageAccountName $StorageAccountName -UseConnectedAccount\n$container = Get-AzStorageContainer -Context $storageContext -Name $StorageContainerName -ErrorAction SilentlyContinue\nif ($null -eq $container) {\n    New-AzStorageContainer -Context $storageContext -Name $StorageContainerName -Permission Off | Out-Null\n}\n\n$uploadedCount = 0\n$localFiles = Get-ChildItem -Path $tempRoot -File -Recurse\nforeach ($file in $localFiles) {\n    $relativeLocal = Normalize-RelativePath -Path $file.FullName.Substring($tempRoot.Length)\n    $blobName = Normalize-RelativePath -Path \"$relativeRoot/$relativeLocal\"\n\n    Set-AzStorageBlobContent -Context $storageContext -Container $StorageContainerName -Blob $blobName -File $file.FullName -Force | Out-Null\n    $uploadedCount++\n}\n\n$result = [pscustomobject]@{\n    status = if ($stats.EndpointsFailed -gt 0) { \"PartialSuccess\" } else { \"Success\" }\n    runId = $runId\n    tenantId = $tenantId\n    exportedItems = $stats.ItemsExported\n    assignmentRows = $stats.AssignmentRows\n    endpointFailures = $stats.EndpointsFailed\n    errorCount = $stats.Errors\n    uploadedFiles = $uploadedCount\n    blobRoot = $relativeRoot\n    storageAccountName = $StorageAccountName\n    containerName = $StorageContainerName\n}\n\nWrite-Log -Message \"Export completed. Items: $($stats.ItemsExported), Errors: $($stats.Errors), UploadedFiles: $uploadedCount\"\n$result | ConvertTo-Json -Depth 6\n\ntry {\n    Remove-Item -Path $tempRoot -Recurse -Force -ErrorAction SilentlyContinue\n}\ncatch {\n    Write-Log -Message \"Temp cleanup failed: $($_.Exception.Message)\" -Level \"WARN\"\n}\n",
+    "storageBlobDataContributorRoleId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')]",
+    "automationJobOperatorRoleId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4fe576fe-1146-4730-92eb-48519fa6bf9f')]",
+    "automationContributorRoleId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'f353d9bd-d4a6-484e-a77a-8050b599b867')]",
+    "logicDefinition": "[variables('$fxv#0')]",
+    "runbookContentBase64": "[base64(variables('$fxv#1'))]",
+    "publishRunbookScriptContent": "$ErrorActionPreference = 'Stop'\n\nImport-Module Az.Accounts -ErrorAction Stop\n\nConnect-AzAccount -Identity | Out-Null\n$subscriptionId = (Get-AzContext).Subscription.Id\n\n$resourceGroupName = $env:RG_NAME\n$automationAccountName = $env:AA_NAME\n$runbookName = $env:RUNBOOK_NAME\n$apiVersion = $env:AUTOMATION_API_VERSION\n$runbookContentBase64 = $env:RUNBOOK_CONTENT_B64\n$runbookContent = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($runbookContentBase64))\n\nif ([string]::IsNullOrWhiteSpace($runbookContent)) {\n    throw 'RUNBOOK_CONTENT_B64 resolved to empty content. Cannot continue.'\n}\n\n$baseUrl = \"https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$resourceGroupName/providers/Microsoft.Automation/automationAccounts/$automationAccountName/runbooks/$runbookName\"\n$token = (Get-AzAccessToken -ResourceUrl 'https://management.azure.com').Token\n\n$replaceHeaders = @{\n    Authorization = \"Bearer $token\"\n    'Content-Type' = 'text/plain'\n}\n\nfunction Invoke-WithRetry {\n    param(\n        [Parameter(Mandatory = $true)][scriptblock]$ScriptBlock,\n        [int]$MaxAttempts = 15,\n        [int]$DelaySeconds = 10\n    )\n\n    for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {\n        try {\n            return & $ScriptBlock\n        }\n        catch {\n            if ($attempt -eq $MaxAttempts) {\n                throw\n            }\n\n            Start-Sleep -Seconds $DelaySeconds\n        }\n    }\n}\n\nInvoke-WithRetry -ScriptBlock {\n    Invoke-RestMethod -Method Put -Uri \"$baseUrl/draft/content?api-version=$apiVersion\" -Headers $replaceHeaders -Body $runbookContent | Out-Null\n} | Out-Null\n\nInvoke-WithRetry -ScriptBlock {\n    Invoke-RestMethod -Method Post -Uri \"$baseUrl/publish?api-version=$apiVersion\" -Headers @{ Authorization = \"Bearer $token\" } | Out-Null\n} | Out-Null\n\n$published = $false\nfor ($i = 0; $i -lt 60; $i++) {\n    Start-Sleep -Seconds 5\n    $state = Invoke-RestMethod -Method Get -Uri \"$baseUrl?api-version=$apiVersion\" -Headers @{ Authorization = \"Bearer $token\" }\n    if ($state.properties.state -eq 'Published') {\n        $published = $true\n        break\n    }\n}\n\nif (-not $published) {\n    throw 'Runbook publish did not reach Published state in allotted time.'\n}\n\n$DeploymentScriptOutputs = @{\n    runbookState = 'Published'\n}\n"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+      "apiVersion": "2023-01-31",
+      "name": "[format('{0}-ds-mi', parameters('prefix'))]",
+      "location": "[parameters('location')]"
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2023-05-01",
+      "name": "[parameters('storageAccountName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "Standard_LRS"
+      },
+      "kind": "StorageV2",
+      "properties": {
+        "allowBlobPublicAccess": false,
+        "minimumTlsVersion": "TLS1_2",
+        "supportsHttpsTrafficOnly": true
+      }
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/blobServices",
+      "apiVersion": "2023-05-01",
+      "name": "[format('{0}/{1}', parameters('storageAccountName'), 'default')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
+      "apiVersion": "2023-05-01",
+      "name": "[format('{0}/{1}/{2}', parameters('storageAccountName'), 'default', parameters('storageContainerName'))]",
+      "properties": {
+        "publicAccess": "None"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts/blobServices', parameters('storageAccountName'), 'default')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/managementPolicies",
+      "apiVersion": "2023-05-01",
+      "name": "[format('{0}/{1}', parameters('storageAccountName'), 'default')]",
+      "properties": {
+        "policy": {
+          "rules": [
+            {
+              "enabled": true,
+              "name": "deleteOldExports",
+              "type": "Lifecycle",
+              "definition": {
+                "actions": {
+                  "baseBlob": {
+                    "delete": {
+                      "daysAfterModificationGreaterThan": "[parameters('retentionDays')]"
+                    }
+                  }
+                },
+                "filters": {
+                  "blobTypes": [
+                    "blockBlob"
+                  ],
+                  "prefixMatch": [
+                    "[parameters('exportRootPath')]"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts",
+      "apiVersion": "2023-11-01",
+      "name": "[parameters('automationAccountName')]",
+      "location": "[parameters('location')]",
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "properties": {
+        "sku": {
+          "name": "Basic"
+        },
+        "publicNetworkAccess": true
+      }
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/runbooks",
+      "apiVersion": "2024-10-23",
+      "name": "[format('{0}/{1}', parameters('automationAccountName'), parameters('runbookName'))]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "description": "Exports Intune configuration to Storage Account as JSON and CSV reports.",
+        "logActivityTrace": 0,
+        "logProgress": true,
+        "logVerbose": true,
+        "runbookType": "PowerShell72",
+        "draft": {}
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]",
+      "name": "[guid(resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName')), format('{0}-ds-mi', parameters('prefix')), 'automationContributor')]",
+      "properties": {
+        "roleDefinitionId": "[variables('automationContributorRoleId')]",
+        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-ds-mi', parameters('prefix'))), '2023-01-31').principalId]",
+        "principalType": "ServicePrincipal"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]",
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-ds-mi', parameters('prefix')))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deploymentScripts",
+      "apiVersion": "2023-08-01",
+      "name": "[format('{0}-publish-runbook', parameters('prefix'))]",
+      "location": "[parameters('location')]",
+      "kind": "AzurePowerShell",
+      "identity": {
+        "type": "UserAssigned",
+        "userAssignedIdentities": {
+          "[format('{0}', resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-ds-mi', parameters('prefix'))))]": {}
+        }
+      },
+      "properties": {
+        "azPowerShellVersion": "11.5",
+        "cleanupPreference": "OnSuccess",
+        "retentionInterval": "P1D",
+        "timeout": "PT45M",
+        "forceUpdateTag": "[uniqueString(variables('runbookContentBase64'))]",
+        "environmentVariables": [
+          {
+            "name": "RG_NAME",
+            "value": "[resourceGroup().name]"
+          },
+          {
+            "name": "AA_NAME",
+            "value": "[parameters('automationAccountName')]"
+          },
+          {
+            "name": "RUNBOOK_NAME",
+            "value": "[parameters('runbookName')]"
+          },
+          {
+            "name": "AUTOMATION_API_VERSION",
+            "value": "2024-10-23"
+          },
+          {
+            "name": "RUNBOOK_CONTENT_B64",
+            "value": "[variables('runbookContentBase64')]"
+          }
+        ],
+        "scriptContent": "[variables('publishRunbookScriptContent')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]",
+        "[extensionResourceId(resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName')), 'Microsoft.Authorization/roleAssignments', guid(resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName')), format('{0}-ds-mi', parameters('prefix')), 'automationContributor'))]",
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-ds-mi', parameters('prefix')))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/runbooks', parameters('automationAccountName'), parameters('runbookName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Logic/workflows",
+      "apiVersion": "2019-05-01",
+      "name": "[parameters('logicAppName')]",
+      "location": "[parameters('location')]",
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "properties": {
+        "state": "Enabled",
+        "definition": "[variables('logicDefinition')]",
+        "parameters": {
+          "automationApiVersion": {
+            "value": "2024-10-23"
+          },
+          "subscriptionId": {
+            "value": "[subscription().subscriptionId]"
+          },
+          "resourceGroupName": {
+            "value": "[resourceGroup().name]"
+          },
+          "automationAccountName": {
+            "value": "[parameters('automationAccountName')]"
+          },
+          "runbookName": {
+            "value": "[parameters('runbookName')]"
+          },
+          "storageAccountName": {
+            "value": "[parameters('storageAccountName')]"
+          },
+          "storageContainerName": {
+            "value": "[parameters('storageContainerName')]"
+          },
+          "exportRootPath": {
+            "value": "[parameters('exportRootPath')]"
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]",
+        "[resourceId('Microsoft.Resources/deploymentScripts', format('{0}-publish-runbook', parameters('prefix')))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/runbooks', parameters('automationAccountName'), parameters('runbookName'))]",
+        "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]",
+      "name": "[guid(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), parameters('automationAccountName'), 'storageBlobDataContributor')]",
+      "properties": {
+        "roleDefinitionId": "[variables('storageBlobDataContributorRoleId')]",
+        "principalId": "[reference(resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName')), '2023-11-01', 'full').identity.principalId]",
+        "principalType": "ServicePrincipal"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]",
+        "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]",
+      "name": "[guid(resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName')), parameters('logicAppName'), 'automationJobOperator')]",
+      "properties": {
+        "roleDefinitionId": "[variables('automationJobOperatorRoleId')]",
+        "principalId": "[reference(resourceId('Microsoft.Logic/workflows', parameters('logicAppName')), '2019-05-01', 'full').identity.principalId]",
+        "principalType": "ServicePrincipal"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]",
+        "[resourceId('Microsoft.Logic/workflows', parameters('logicAppName'))]"
+      ]
+    }
+  ],
+  "outputs": {
+    "storageAccountResourceId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
+    },
+    "storageContainer": {
+      "type": "string",
+      "value": "[parameters('storageContainerName')]"
+    },
+    "automationAccountResourceId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]"
+    },
+    "automationPrincipalId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName')), '2023-11-01', 'full').identity.principalId]"
+    },
+    "runbookNameOut": {
+      "type": "string",
+      "value": "[parameters('runbookName')]"
+    },
+    "logicAppResourceId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Logic/workflows', parameters('logicAppName'))]"
+    },
+    "logicAppPrincipalId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Logic/workflows', parameters('logicAppName')), '2019-05-01', 'full').identity.principalId]"
+    }
+  }
+}

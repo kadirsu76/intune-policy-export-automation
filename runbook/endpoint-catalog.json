@@ -1,0 +1,238 @@
+[
+  {
+    "id": "settingsCatalog",
+    "area": "DeviceConfiguration",
+    "subcategory": "SettingsCatalog",
+    "apiVersion": "beta",
+    "path": "/deviceManagement/configurationPolicies?$expand=settings",
+    "assignmentPathTemplate": "/deviceManagement/configurationPolicies/{id}/assignments"
+  },
+  {
+    "id": "deviceConfigurations",
+    "area": "DeviceConfiguration",
+    "subcategory": "DeviceConfigurations",
+    "apiVersion": "beta",
+    "path": "/deviceManagement/deviceConfigurations",
+    "assignmentPathTemplate": "/deviceManagement/deviceConfigurations/{id}/assignments"
+  },
+  {
+    "id": "groupPolicyConfigurations",
+    "area": "DeviceConfiguration",
+    "subcategory": "AdministrativeTemplates",
+    "apiVersion": "beta",
+    "path": "/deviceManagement/groupPolicyConfigurations",
+    "assignmentPathTemplate": "/deviceManagement/groupPolicyConfigurations/{id}/assignments"
+  },
+  {
+    "id": "deviceCompliancePolicies",
+    "area": "Compliance",
+    "subcategory": "CompliancePolicies",
+    "apiVersion": "beta",
+    "path": "/deviceManagement/deviceCompliancePolicies",
+    "assignmentPathTemplate": "/deviceManagement/deviceCompliancePolicies/{id}/assignments"
+  },
+  {
+    "id": "intents",
+    "area": "EndpointSecurity",
+    "subcategory": "SecurityPolicies",
+    "apiVersion": "beta",
+    "path": "/deviceManagement/intents",
+    "assignmentPathTemplate": "/deviceManagement/intents/{id}/assignments"
+  },
+  {
+    "id": "templates",
+    "area": "EndpointSecurity",
+    "subcategory": "Templates",
+    "apiVersion": "beta",
+    "path": "/deviceManagement/templates"
+  },
+  {
+    "id": "deviceManagementScripts",
+    "area": "Scripts",
+    "subcategory": "WindowsPowerShellScripts",
+    "apiVersion": "beta",
+    "path": "/deviceManagement/deviceManagementScripts",
+    "assignmentPathTemplate": "/deviceManagement/deviceManagementScripts/{id}/assignments"
+  },
+  {
+    "id": "deviceShellScripts",
+    "area": "Scripts",
+    "subcategory": "macOSShellScripts",
+    "apiVersion": "beta",
+    "path": "/deviceManagement/deviceShellScripts",
+    "assignmentPathTemplate": "/deviceManagement/deviceShellScripts/{id}/assignments"
+  },
+  {
+    "id": "deviceCustomAttributeShellScripts",
+    "area": "Scripts",
+    "subcategory": "CustomAttributeScripts",
+    "apiVersion": "beta",
+    "path": "/deviceManagement/deviceCustomAttributeShellScripts"
+  },
+  {
+    "id": "deviceHealthScripts",
+    "area": "Scripts",
+    "subcategory": "ProactiveRemediations",
+    "apiVersion": "beta",
+    "path": "/deviceManagement/deviceHealthScripts",
+    "assignmentPathTemplate": "/deviceManagement/deviceHealthScripts/{id}/assignments"
+  },
+  {
+    "id": "windowsFeatureUpdateProfiles",
+    "area": "Updates",
+    "subcategory": "FeatureUpdates",
+    "apiVersion": "beta",
+    "path": "/deviceManagement/windowsFeatureUpdateProfiles",
+    "assignmentPathTemplate": "/deviceManagement/windowsFeatureUpdateProfiles/{id}/assignments"
+  },
+  {
+    "id": "windowsQualityUpdateProfiles",
+    "area": "Updates",
+    "subcategory": "QualityUpdates",
+    "apiVersion": "beta",
+    "path": "/deviceManagement/windowsQualityUpdateProfiles",
+    "assignmentPathTemplate": "/deviceManagement/windowsQualityUpdateProfiles/{id}/assignments"
+  },
+  {
+    "id": "windowsDriverUpdateProfiles",
+    "area": "Updates",
+    "subcategory": "DriverUpdates",
+    "apiVersion": "beta",
+    "path": "/deviceManagement/windowsDriverUpdateProfiles",
+    "assignmentPathTemplate": "/deviceManagement/windowsDriverUpdateProfiles/{id}/assignments"
+  },
+  {
+    "id": "deviceEnrollmentConfigurations",
+    "area": "Enrollment",
+    "subcategory": "EnrollmentConfigurations",
+    "apiVersion": "beta",
+    "path": "/deviceManagement/deviceEnrollmentConfigurations",
+    "assignmentPathTemplate": "/deviceManagement/deviceEnrollmentConfigurations/{id}/assignments"
+  },
+  {
+    "id": "windowsAutopilotDeploymentProfiles",
+    "area": "Enrollment",
+    "subcategory": "AutopilotDeploymentProfiles",
+    "apiVersion": "beta",
+    "path": "/deviceManagement/windowsAutopilotDeploymentProfiles",
+    "assignmentPathTemplate": "/deviceManagement/windowsAutopilotDeploymentProfiles/{id}/assignments"
+  },
+  {
+    "id": "deviceEnrollmentNotificationsConfiguration",
+    "area": "Enrollment",
+    "subcategory": "EnrollmentNotifications",
+    "apiVersion": "beta",
+    "path": "/deviceManagement/deviceEnrollmentNotificationsConfiguration"
+  },
+  {
+    "id": "deviceCategories",
+    "area": "Tenant",
+    "subcategory": "DeviceCategories",
+    "apiVersion": "beta",
+    "path": "/deviceManagement/deviceCategories"
+  },
+  {
+    "id": "assignmentFilters",
+    "area": "Tenant",
+    "subcategory": "AssignmentFilters",
+    "apiVersion": "beta",
+    "path": "/deviceManagement/assignmentFilters"
+  },
+  {
+    "id": "roleDefinitions",
+    "area": "Tenant",
+    "subcategory": "RBACRoleDefinitions",
+    "apiVersion": "beta",
+    "path": "/deviceManagement/roleDefinitions"
+  },
+  {
+    "id": "roleAssignments",
+    "area": "Tenant",
+    "subcategory": "RBACRoleAssignments",
+    "apiVersion": "beta",
+    "path": "/deviceManagement/roleAssignments"
+  },
+  {
+    "id": "scopeTags",
+    "area": "Tenant",
+    "subcategory": "ScopeTags",
+    "apiVersion": "beta",
+    "path": "/deviceManagement/roleScopeTags"
+  },
+  {
+    "id": "notificationMessageTemplates",
+    "area": "Tenant",
+    "subcategory": "NotificationTemplates",
+    "apiVersion": "beta",
+    "path": "/deviceManagement/notificationMessageTemplates"
+  },
+  {
+    "id": "termsAndConditions",
+    "area": "Tenant",
+    "subcategory": "TermsAndConditions",
+    "apiVersion": "beta",
+    "path": "/deviceManagement/termsAndConditions"
+  },
+  {
+    "id": "complianceManagementPartners",
+    "area": "Tenant",
+    "subcategory": "CompliancePartners",
+    "apiVersion": "beta",
+    "path": "/deviceManagement/complianceManagementPartners"
+  },
+  {
+    "id": "mobileApps",
+    "area": "Applications",
+    "subcategory": "MobileApps",
+    "apiVersion": "beta",
+    "path": "/deviceAppManagement/mobileApps",
+    "assignmentPathTemplate": "/deviceAppManagement/mobileApps/{id}/assignments"
+  },
+  {
+    "id": "mobileAppConfigurations",
+    "area": "Applications",
+    "subcategory": "AppConfigurations",
+    "apiVersion": "beta",
+    "path": "/deviceAppManagement/mobileAppConfigurations",
+    "assignmentPathTemplate": "/deviceAppManagement/mobileAppConfigurations/{id}/assignments"
+  },
+  {
+    "id": "targetedManagedAppConfigurations",
+    "area": "Applications",
+    "subcategory": "ManagedAppConfigurations",
+    "apiVersion": "beta",
+    "path": "/deviceAppManagement/targetedManagedAppConfigurations",
+    "assignmentPathTemplate": "/deviceAppManagement/targetedManagedAppConfigurations/{id}/assignments"
+  },
+  {
+    "id": "androidManagedAppProtections",
+    "area": "Applications",
+    "subcategory": "AppProtectionAndroid",
+    "apiVersion": "beta",
+    "path": "/deviceAppManagement/androidManagedAppProtections",
+    "assignmentPathTemplate": "/deviceAppManagement/androidManagedAppProtections/{id}/assignments"
+  },
+  {
+    "id": "iosManagedAppProtections",
+    "area": "Applications",
+    "subcategory": "AppProtectioniOS",
+    "apiVersion": "beta",
+    "path": "/deviceAppManagement/iosManagedAppProtections",
+    "assignmentPathTemplate": "/deviceAppManagement/iosManagedAppProtections/{id}/assignments"
+  },
+  {
+    "id": "managedAppPolicies",
+    "area": "Applications",
+    "subcategory": "ManagedAppPolicies",
+    "apiVersion": "beta",
+    "path": "/deviceAppManagement/managedAppPolicies"
+  },
+  {
+    "id": "mdmWindowsInformationProtectionPolicies",
+    "area": "Applications",
+    "subcategory": "WindowsInformationProtection",
+    "apiVersion": "beta",
+    "path": "/deviceAppManagement/mdmWindowsInformationProtectionPolicies",
+    "assignmentPathTemplate": "/deviceAppManagement/mdmWindowsInformationProtectionPolicies/{id}/assignments"
+  }
+]
