@@ -91,7 +91,7 @@ pwsh ./scripts/Grant-Permissions.ps1 -ResourceGroupName rg-intune-export -Automa
 
 Button (will work after repo is public, or if this file is exposed from a public deploy repo):
 
-[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FYOUR_ORG_OR_USER%2FYOUR_REPO%2Fmain%2Fazuredeploy.json)
+[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fkadirsu76%2Fintune-policy-export-automation%2Fmain%2Fazuredeploy.json)
 
 Template entry file is `azuredeploy.json` in this folder. It references `infra/main.json` via `relativePath`.
 
