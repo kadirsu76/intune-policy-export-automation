@@ -17,7 +17,30 @@ if ([string]::IsNullOrWhiteSpace($runbookContent)) {
 }
 
 $baseUrl = "https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$resourceGroupName/providers/Microsoft.Automation/automationAccounts/$automationAccountName/runbooks/$runbookName"
-$token = (Get-AzAccessToken -ResourceUrl 'https://management.azure.com').Token
+
+function Get-PlainTextToken {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ResourceUrl
+    )
+
+    $tokenResponse = Get-AzAccessToken -ResourceUrl $ResourceUrl -ErrorAction Stop
+    $tokenValue = $tokenResponse.Token
+
+    if ($tokenValue -is [System.Security.SecureString]) {
+        $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($tokenValue)
+        try {
+            return [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+        }
+        finally {
+            [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+        }
+    }
+
+    return [string]$tokenValue
+}
+
+$token = Get-PlainTextToken -ResourceUrl 'https://management.azure.com/'
 
 $replaceHeaders = @{
     Authorization = "Bearer $token"

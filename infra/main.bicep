@@ -23,6 +23,7 @@ var automationContributorRoleId = subscriptionResourceId('Microsoft.Authorizatio
 var logicDefinition = loadJsonContent('workflow-definition.json')
 var runbookContentBase64 = base64(loadTextContent('../runbook/Export-IntuneConfiguration.ps1'))
 var publishRunbookScriptContent = loadTextContent('publish-runbook.ps1')
+var publishRunbookScriptContentHash = base64(publishRunbookScriptContent)
 var normalizedBaseName = toLower(replace(baseName, '_', '-'))
 var storageAccountName = 'st${uniqueString(resourceGroup().id, normalizedBaseName)}'
 var storageContainerName = '${normalizedBaseName}-exports'
@@ -150,7 +151,7 @@ resource publishRunbookScript 'Microsoft.Resources/deploymentScripts@2023-08-01'
     cleanupPreference: 'OnSuccess'
     retentionInterval: 'P1D'
     timeout: 'PT45M'
-    forceUpdateTag: uniqueString(runbookContentBase64)
+    forceUpdateTag: uniqueString(runbookContentBase64, publishRunbookScriptContentHash)
     environmentVariables: [
       {
         name: 'RG_NAME'

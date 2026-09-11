@@ -425,6 +425,25 @@ function Resolve-RetryAfterSeconds {
 $script:GraphToken = $null
 $script:GraphTokenExpiresOn = (Get-Date).ToUniversalTime().AddMinutes(-1)
 
+function Resolve-AccessTokenValue {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$TokenValue
+    )
+
+    if ($TokenValue -is [System.Security.SecureString]) {
+        $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($TokenValue)
+        try {
+            return [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+        }
+        finally {
+            [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+        }
+    }
+
+    return [string]$TokenValue
+}
+
 function Get-GraphToken {
     $now = (Get-Date).ToUniversalTime()
     if ($null -ne $script:GraphToken -and $script:GraphTokenExpiresOn -gt $now.AddMinutes(5)) {
@@ -432,7 +451,7 @@ function Get-GraphToken {
     }
 
     $tokenResponse = Get-AzAccessToken -ResourceUrl "https://graph.microsoft.com" -ErrorAction Stop
-    $script:GraphToken = $tokenResponse.Token
+    $script:GraphToken = Resolve-AccessTokenValue -TokenValue $tokenResponse.Token
     $script:GraphTokenExpiresOn = $tokenResponse.ExpiresOn.UtcDateTime
     return $script:GraphToken
 }
