@@ -1,12 +1,7 @@
 param(
     [Parameter(Mandatory = $true)]
-    [string]$ResourceGroupName,
-
-    [Parameter(Mandatory = $false)]
-    [string]$AutomationAccountName,
-
-    [Parameter(Mandatory = $false)]
-    [string]$BaseName = 'intunex',
+    [Alias('ManagedIdentityObjectId')]
+    [string]$Mi,
 
     [Parameter(Mandatory = $false)]
     [string[]]$GraphAppPermissions = @(
@@ -27,15 +22,9 @@ if (-not (Test-Path -Path $scriptPath)) {
 }
 
 Write-Host 'Granting Microsoft Graph app permissions to Automation managed identity...'
-Write-Host "Resource Group : $ResourceGroupName"
-if ([string]::IsNullOrWhiteSpace($AutomationAccountName)) {
-    $AutomationAccountName = "aa-$($BaseName.ToLowerInvariant())"
-}
-Write-Host "Automation    : $AutomationAccountName"
+Write-Host "MI Object ID : $Mi"
 Write-Host ''
 
 & $scriptPath `
-    -ResourceGroupName $ResourceGroupName `
-    -AutomationAccountName $AutomationAccountName `
-    -BaseName $BaseName `
+    -Mi $Mi `
     -GraphAppPermissions $GraphAppPermissions

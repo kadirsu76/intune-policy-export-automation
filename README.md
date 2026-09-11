@@ -82,14 +82,16 @@ pwsh ./scripts/Test-Prerequisites.ps1
 2. Grant Graph application permissions to Automation managed identity:
 
 ```powershell
-pwsh ./scripts/Grant-GraphPermissions.ps1 -ResourceGroupName rg-intune-export -BaseName intunex
+pwsh ./scripts/Grant-GraphPermissions.ps1 -Mi <automation-mi-object-id>
 ```
 
 Alternative alias command:
 
 ```powershell
-pwsh ./scripts/Grant-Permissions.ps1 -ResourceGroupName rg-intune-export -BaseName intunex
+pwsh ./scripts/Grant-Permissions.ps1 -Mi <automation-mi-object-id>
 ```
+
+`<automation-mi-object-id>` value: Azure Portal -> Automation Account (`aa-<basename>`) -> Identity -> Object (principal) ID.
 
 3. Wait a few minutes for managed identity token cache refresh.
 

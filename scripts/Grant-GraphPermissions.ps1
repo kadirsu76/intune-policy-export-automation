@@ -1,12 +1,7 @@
 param(
     [Parameter(Mandatory = $true)]
-    [string]$ResourceGroupName,
-
-    [Parameter(Mandatory = $false)]
-    [string]$AutomationAccountName,
-
-    [Parameter(Mandatory = $false)]
-    [string]$BaseName = 'intunex',
+    [Alias('ManagedIdentityObjectId')]
+    [string]$Mi,
 
     [Parameter(Mandatory = $false)]
     [string[]]$GraphAppPermissions = @(
@@ -21,8 +16,9 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-if ([string]::IsNullOrWhiteSpace($AutomationAccountName)) {
-    $AutomationAccountName = "aa-$($BaseName.ToLowerInvariant())"
+$managedIdentityObjectId = $Mi.Trim()
+if ($managedIdentityObjectId -notmatch '^[0-9a-fA-F-]{36}$') {
+    throw "Invalid -Mi value. Use managed identity Object (principal) ID GUID."
 }
 
 function Assert-Module {
@@ -34,30 +30,13 @@ function Assert-Module {
     }
 }
 
-Assert-Module -Name Az.Accounts
-Assert-Module -Name Az.Automation
 Assert-Module -Name Microsoft.Graph.Authentication
 Assert-Module -Name Microsoft.Graph.Applications
 
-Import-Module Az.Accounts
-Import-Module Az.Automation
 Import-Module Microsoft.Graph.Authentication
 Import-Module Microsoft.Graph.Applications
 
-try {
-    Get-AzContext -ErrorAction Stop | Out-Null
-}
-catch {
-    Connect-AzAccount | Out-Null
-}
-
-$automation = Get-AzAutomationAccount -ResourceGroupName $ResourceGroupName -Name $AutomationAccountName
-if ($null -eq $automation.Identity -or [string]::IsNullOrWhiteSpace($automation.Identity.PrincipalId)) {
-    throw "Automation account managed identity not found. Ensure system-assigned identity is enabled."
-}
-
-$managedIdentityObjectId = [string]$automation.Identity.PrincipalId
-Write-Host "Automation managed identity object id: $managedIdentityObjectId"
+Write-Host "Managed identity object id: $managedIdentityObjectId"
 
 $requiredScopes = @(
     'Application.Read.All',
@@ -72,7 +51,7 @@ if ($null -eq $graphServicePrincipal) {
     throw 'Microsoft Graph service principal not found in tenant.'
 }
 
-$miServicePrincipal = Get-MgServicePrincipal -ServicePrincipalId $managedIdentityObjectId
+$miServicePrincipal = Get-MgServicePrincipal -ServicePrincipalId $managedIdentityObjectId -ErrorAction SilentlyContinue
 if ($null -eq $miServicePrincipal) {
     throw "Managed identity service principal not found: $managedIdentityObjectId"
 }

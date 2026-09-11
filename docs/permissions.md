@@ -15,8 +15,12 @@
 Run:
 
 ```powershell
-pwsh ./scripts/Grant-GraphPermissions.ps1 -ResourceGroupName <rg> -BaseName <basename>
+pwsh ./scripts/Grant-GraphPermissions.ps1 -Mi <automation-mi-object-id>
 ```
+
+Find MI object id:
+
+- Automation Account (`aa-<basename>`) -> Identity -> Object (principal) ID
 
 Default app roles granted:
 

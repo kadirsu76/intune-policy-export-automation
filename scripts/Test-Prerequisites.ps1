@@ -36,8 +36,6 @@ Write-Host ''
 Write-Host 'Checking PowerShell modules for Graph permission script...'
 
 $modules = @(
-    'Az.Accounts',
-    'Az.Automation',
     'Microsoft.Graph.Authentication',
     'Microsoft.Graph.Applications'
 )

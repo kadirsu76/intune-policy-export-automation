@@ -62,4 +62,5 @@ az deployment group create `
     --output table
 
 Write-Host "Deployment completed."
-Write-Host "Next step: run scripts/Grant-GraphPermissions.ps1 to grant Microsoft Graph app roles to Automation managed identity."
+Write-Host "Get MI Object ID from Automation Account > Identity, then run:"
+Write-Host "pwsh ./scripts/Grant-GraphPermissions.ps1 -Mi <object-id-guid>"
