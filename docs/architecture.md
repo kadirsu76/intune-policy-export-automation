@@ -2,22 +2,18 @@
 
 ## Components
 
-1. **Logic App (Consumption)**
-   - Daily schedule trigger (00:00 UTC)
-   - Starts Automation runbook job via ARM REST API
-   - Polls job status until terminal state
-   - Fails workflow on failed/suspended/stopped runbook job
-
-2. **Azure Automation Account**
+1. **Azure Automation Account**
    - System-assigned managed identity
    - PowerShell 7.2 runbook: `Export-IntuneConfiguration`
+   - Native Automation schedule: `sch-<basename>-daily` (daily 00:00 UTC)
+   - Job schedule association passes runbook parameters
    - Export logic includes pagination, retry, error isolation, and reporting
 
-3. **Azure Storage Account (Blob)**
+2. **Azure Storage Account (Blob)**
    - Private container for exports
    - Lifecycle policy for retention-based cleanup (default: 365 days)
 
-4. **Deployment Script resource**
+3. **Deployment Script resource**
    - Publishes runbook content to Automation draft
    - Publishes runbook after draft update
 
@@ -31,11 +27,10 @@
 
 ## Data flow
 
-1. Recurrence trigger starts Logic App.
-2. Logic App creates runbook job.
-3. Runbook calls Graph endpoints and builds export artifacts.
-4. Runbook uploads artifacts to Blob storage.
-5. Logic App tracks final job state.
+1. Automation schedule triggers the linked runbook job.
+2. Runbook calls Graph endpoints and builds export artifacts.
+3. Runbook uploads artifacts to Blob storage.
+4. Job result is tracked in Azure Automation job history.
 
 ## Reliability behavior
 

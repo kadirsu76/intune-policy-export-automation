@@ -12,7 +12,10 @@ param(
     [int]$RetentionDays = 365,
 
     [Parameter(Mandatory = $false)]
-    [string]$ExportRootPath = "daily"
+    [string]$ExportRootPath = "daily",
+
+    [Parameter(Mandatory = $false)]
+    [string]$ScheduleStartTime
 )
 
 Set-StrictMode -Version Latest
@@ -54,6 +57,10 @@ $parameters = @(
     "exportRootPath=$ExportRootPath"
 )
 
+if (-not [string]::IsNullOrWhiteSpace($ScheduleStartTime)) {
+    $parameters += "scheduleStartTime=$ScheduleStartTime"
+}
+
 Write-Host "Deploying infrastructure from $templateFile"
 az deployment group create `
     --resource-group $ResourceGroupName `
@@ -62,5 +69,6 @@ az deployment group create `
     --output table
 
 Write-Host "Deployment completed."
+Write-Host "Runbook is scheduled daily at 00:00 UTC via Automation Schedule."
 Write-Host "Get MI Object ID from Automation Account > Identity, then run:"
 Write-Host "pwsh ./scripts/Grant-GraphPermissions.ps1 -Mi <object-id-guid>"

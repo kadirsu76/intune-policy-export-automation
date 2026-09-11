@@ -8,7 +8,7 @@
       "minLength": 3,
       "maxLength": 20,
       "metadata": {
-        "description": "Single base name used to derive resource names, for example intunex => la-intunex, aa-intunex"
+        "description": "Single base name used to derive resource names, for example intunex => aa-intunex, sch-intunex-daily"
       }
     },
     "exportRootPath": {
@@ -26,6 +26,13 @@
       "maxValue": 3650,
       "metadata": {
         "description": "Retention in days for lifecycle cleanup"
+      }
+    },
+    "scheduleStartTime": {
+      "type": "string",
+      "defaultValue": "[dateTimeAdd(utcNow(), 'P2D', 'yyyy-MM-ddT00:00:00Z')]",
+      "metadata": {
+        "description": "Daily schedule start time in UTC (must be in the future)"
       }
     }
   },
@@ -48,6 +55,9 @@
           },
           "retentionDays": {
             "value": "[parameters('retentionDays')]"
+          },
+          "scheduleStartTime": {
+            "value": "[parameters('scheduleStartTime')]"
           }
         }
       }
@@ -78,17 +88,17 @@
       "type": "string",
       "value": "[reference('intunePolicyExportMain').outputs.runbookNameOut.value]"
     },
-    "logicAppResourceId": {
+    "scheduleResourceId": {
       "type": "string",
-      "value": "[reference('intunePolicyExportMain').outputs.logicAppResourceId.value]"
+      "value": "[reference('intunePolicyExportMain').outputs.scheduleResourceId.value]"
     },
-    "logicAppName": {
+    "scheduleName": {
       "type": "string",
-      "value": "[reference('intunePolicyExportMain').outputs.logicAppNameOut.value]"
+      "value": "[reference('intunePolicyExportMain').outputs.scheduleNameOut.value]"
     },
-    "logicAppPrincipalId": {
+    "jobScheduleResourceId": {
       "type": "string",
-      "value": "[reference('intunePolicyExportMain').outputs.logicAppPrincipalId.value]"
+      "value": "[reference('intunePolicyExportMain').outputs.jobScheduleResourceId.value]"
     }
   }
 }

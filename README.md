@@ -2,7 +2,7 @@
 
 Daily Intune configuration export automation with:
 
-- Logic App (Consumption) scheduler (daily 00:00 UTC)
+- Azure Automation schedule (daily 00:00 UTC)
 - Azure Automation PowerShell 7.2 runbook (managed identity)
 - Azure Storage Account blob archive (JSON + CSV + manifest)
 
@@ -65,9 +65,9 @@ pwsh ./scripts/Deploy-Azure.ps1 -ResourceGroupName rg-intune-export -Location we
 
 Resource names are derived automatically from `BaseName`:
 
-- Logic App: `la-<basename>`
 - Automation Account: `aa-<basename>`
 - Runbook: `rb-<basename>-export`
+- Schedule: `sch-<basename>-daily`
 - Storage Container: `<basename>-exports`
 - Storage Account: auto-generated (`st<uniqueString>`) and returned as deployment output
 
@@ -93,7 +93,12 @@ pwsh ./scripts/Grant-Permissions.ps1 -Mi <automation-mi-object-id>
 
 3. Wait a few minutes for managed identity token cache refresh.
 
-4. Trigger Logic App manually once from Azure portal for validation.
+4. Validation:
+
+- Runbook manual start once: Automation Account -> Runbooks -> `rb-<basename>-export` -> Start
+- Confirm job status is `Completed`
+- Confirm new blob folder under `daily/<yyyy>/<MM>/<dd>/...`
+- Confirm schedule exists: Automation Account -> Schedules -> `sch-<basename>-daily`
 
 ## Deploy to Azure button
 
@@ -115,10 +120,11 @@ Minimum Graph app roles used by the helper script:
 Azure RBAC set by template:
 
 - Automation identity -> `Storage Blob Data Contributor` on storage account
-- Logic App identity -> `Automation Job Operator` on automation account
 
 ## Notes
 
 - Template creates and publishes runbook content during deployment using a deployment script.
+- Template links runbook to an Automation schedule (`sch-<basename>-daily`) and passes `StorageAccountName`, `StorageContainerName`, `ExportRootPath` parameters.
 - Export continues even if some endpoints fail; failures are recorded in `Export-Errors.csv`.
 - Some Intune resources require Microsoft Graph `beta` endpoints; these are included by design.
+- If you deployed an older Logic App-based version, disable/delete `la-<basename>` after moving to this schedule-based template to avoid duplicate exports.

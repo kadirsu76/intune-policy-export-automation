@@ -3,7 +3,7 @@ targetScope = 'resourceGroup'
 @description('Resource location')
 param location string = resourceGroup().location
 
-@description('Single base name used to derive all resource names, for example intunex => la-intunex, aa-intunex')
+@description('Single base name used to derive all resource names, for example intunex => aa-intunex, sch-intunex-daily')
 @minLength(3)
 @maxLength(20)
 param baseName string = 'intunex'
@@ -17,10 +17,11 @@ param exportRootPath string = 'daily'
 @maxValue(3650)
 param retentionDays int = 365
 
+@description('Daily schedule start time in UTC (must be in the future)')
+param scheduleStartTime string = dateTimeAdd(utcNow(), 'P2D', 'yyyy-MM-ddT00:00:00Z')
+
 var storageBlobDataContributorRoleId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')
-var automationJobOperatorRoleId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4fe576fe-1146-4730-92eb-48519fa6bf9f')
 var automationContributorRoleId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'f353d9bd-d4a6-484e-a77a-8050b599b867')
-var logicDefinition = loadJsonContent('workflow-definition.json')
 var runbookContentBase64 = base64(loadTextContent('../runbook/Export-IntuneConfiguration.ps1'))
 var publishRunbookScriptContent = loadTextContent('publish-runbook.ps1')
 var publishRunbookScriptContentHash = base64(publishRunbookScriptContent)
@@ -28,8 +29,9 @@ var normalizedBaseName = toLower(replace(baseName, '_', '-'))
 var storageAccountName = 'st${uniqueString(resourceGroup().id, normalizedBaseName)}'
 var storageContainerName = '${normalizedBaseName}-exports'
 var automationAccountName = 'aa-${normalizedBaseName}'
-var logicAppName = 'la-${normalizedBaseName}'
 var runbookName = 'rb-${normalizedBaseName}-export'
+var scheduleName = 'sch-${normalizedBaseName}-daily'
+var jobScheduleName = guid(automationAccount.id, runbook.name, scheduleName)
 var deploymentIdentityName = 'mi-${normalizedBaseName}-ds'
 var publishRunbookScriptName = 'ds-${normalizedBaseName}-publish-runbook'
 
@@ -181,47 +183,6 @@ resource publishRunbookScript 'Microsoft.Resources/deploymentScripts@2023-08-01'
   ]
 }
 
-resource logicApp 'Microsoft.Logic/workflows@2019-05-01' = {
-  name: logicAppName
-  location: location
-  identity: {
-    type: 'SystemAssigned'
-  }
-  properties: {
-    state: 'Enabled'
-    definition: logicDefinition
-    parameters: {
-      automationApiVersion: {
-        value: '2024-10-23'
-      }
-      subscriptionId: {
-        value: subscription().subscriptionId
-      }
-      resourceGroupName: {
-        value: resourceGroup().name
-      }
-      automationAccountName: {
-        value: automationAccount.name
-      }
-      runbookName: {
-        value: runbook.name
-      }
-      storageAccountName: {
-        value: storageAccount.name
-      }
-      storageContainerName: {
-        value: storageContainerName
-      }
-      exportRootPath: {
-        value: exportRootPath
-      }
-    }
-  }
-  dependsOn: [
-    publishRunbookScript
-  ]
-}
-
 resource storageRoleForAutomation 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(storageAccount.id, automationAccount.name, 'storageBlobDataContributor')
   scope: storageAccount
@@ -232,14 +193,38 @@ resource storageRoleForAutomation 'Microsoft.Authorization/roleAssignments@2022-
   }
 }
 
-resource automationRoleForLogicApp 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(automationAccount.id, logicApp.name, 'automationJobOperator')
-  scope: automationAccount
+resource dailySchedule 'Microsoft.Automation/automationAccounts/schedules@2024-10-23' = {
+  name: scheduleName
+  parent: automationAccount
   properties: {
-    roleDefinitionId: automationJobOperatorRoleId
-    principalId: logicApp.identity.principalId
-    principalType: 'ServicePrincipal'
+    description: 'Daily Intune policy export at 00:00 UTC'
+    startTime: scheduleStartTime
+    frequency: 'Day'
+    interval: 1
+    timeZone: 'Etc/UTC'
   }
+}
+
+resource dailyJobSchedule 'Microsoft.Automation/automationAccounts/jobSchedules@2024-10-23' = {
+  name: jobScheduleName
+  parent: automationAccount
+  properties: {
+    schedule: {
+      name: dailySchedule.name
+    }
+    runbook: {
+      name: runbook.name
+    }
+    parameters: {
+      StorageAccountName: storageAccount.name
+      StorageContainerName: storageContainerName
+      ExportRootPath: exportRootPath
+    }
+  }
+  dependsOn: [
+    publishRunbookScript
+    storageRoleForAutomation
+  ]
 }
 
 output storageAccountResourceId string = storageAccount.id
@@ -249,6 +234,6 @@ output automationAccountResourceId string = automationAccount.id
 output automationAccountNameOut string = automationAccount.name
 output automationPrincipalId string = automationAccount.identity.principalId
 output runbookNameOut string = runbook.name
-output logicAppResourceId string = logicApp.id
-output logicAppNameOut string = logicApp.name
-output logicAppPrincipalId string = logicApp.identity.principalId
+output scheduleResourceId string = dailySchedule.id
+output scheduleNameOut string = dailySchedule.name
+output jobScheduleResourceId string = dailyJobSchedule.id

@@ -6,10 +6,6 @@
    - Scope: Storage Account
    - Role: `Storage Blob Data Contributor`
 
-2. **Logic App managed identity**
-   - Scope: Automation Account
-   - Role: `Automation Job Operator`
-
 ## Microsoft Graph app roles (one-time admin task)
 
 Run:

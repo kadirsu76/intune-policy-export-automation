@@ -7,10 +7,11 @@
 - Check deployment script resource logs in Azure portal.
 - Confirm deployment script identity has `Automation Contributor` on Automation account.
 
-### Logic App fails at Create_Job
+### Schedule does not trigger runbook
 
-- Confirm Logic App managed identity has `Automation Job Operator` on Automation account.
-- Verify workflow parameter names match runbook parameter names.
+- Confirm schedule `sch-<basename>-daily` exists under Automation Account -> Schedules.
+- Confirm schedule next run time is in the future and UTC.
+- Confirm runbook is linked in Automation Account -> Runbooks -> `rb-<basename>-export` -> Schedules.
 
 ## Runbook execution
 
@@ -31,7 +32,8 @@
 
 ## Validation checklist
 
-1. Manually run Logic App once.
+1. Manually run runbook once from Automation Account.
 2. Confirm job status is `Completed` in Automation.
 3. Confirm new blob folder under `daily/<yyyy>/<MM>/<dd>/...`.
 4. Confirm report files exist in `Reports/`.
+5. Confirm daily schedule `sch-<basename>-daily` is enabled and linked.
