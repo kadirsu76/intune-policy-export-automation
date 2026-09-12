@@ -6,7 +6,7 @@ Daily Intune configuration export automation with:
 - Azure Automation PowerShell 7.2 runbook (managed identity)
 - Azure Storage Account blob archive (JSON + CSV + manifest)
 
-This solution is designed for private repositories first, and can be switched to one-click Deploy to Azure when repo content is public.
+Uses Azure Automation, managed identity, and private Blob storage.
 
 ## What it exports
 
@@ -55,7 +55,7 @@ Platform folders include:
   - Azure CLI (`az`)
   - PowerShell 7+ (`pwsh`)
 
-## Private repo deployment (current mode)
+## Deploy
 
 1. Deploy Azure resources:
 
@@ -71,12 +71,6 @@ Resource names are derived automatically from `BaseName`:
 - Storage Container: `<basename>-exports`
 - Storage Account: auto-generated (`st<uniqueString>`) and returned as deployment output
 
-Optional pre-check:
-
-```powershell
-pwsh ./scripts/Test-Prerequisites.ps1
-```
-
 2. Grant Graph application permissions to Automation managed identity:
 
 ```powershell
@@ -91,14 +85,7 @@ pwsh ./scripts/Grant-Permissions.ps1 -Mi <automation-mi-object-id>
 
 `<automation-mi-object-id>` value: Azure Portal -> Automation Account (`aa-<basename>`) -> Identity -> Object (principal) ID.
 
-3. Wait a few minutes for managed identity token cache refresh.
-
-4. Validation. The runbook has no manual parameters; storage settings are read from Automation Variables created by the template:
-
-- Runbook manual start once: Automation Account -> Runbooks -> `rb-<basename>-export` -> Start
-- Confirm job status is `Completed`
-- Confirm new blob folder under `daily/<yyyy>/<MM>/<dd>/...`
-- Confirm schedule exists: Automation Account -> Schedules -> `sch-<basename>-daily`
+3. Wait a few minutes, then start the runbook once from Portal. It has no parameters. Confirm the job is `Completed` and a new folder exists under `daily/`.
 
 ## Trigger export now (one command)
 
@@ -108,11 +95,7 @@ You can trigger an on-demand export immediately from CLI:
 pwsh ./scripts/Start-ExportNow.ps1 -ResourceGroupName rg-intune-export -BaseName intunex
 ```
 
-Optional flags:
-
-- `-SubscriptionId <guid>`: switch subscription before trigger
-- `-Wait`: wait for terminal status (`Completed`/`Failed`) in console
-- `-PollSeconds 15`: polling interval when `-Wait` is used
+Use `-Wait` to follow the job. `-SubscriptionId` selects a subscription when needed.
 
 ## Deploy to Azure button
 
@@ -137,8 +120,7 @@ Azure RBAC set by template:
 
 ## Notes
 
-- Template creates and publishes runbook content during deployment using a deployment script.
-- Template stores `StorageAccountName`, `StorageContainerName`, and `ExportRootPath` in Automation Variables; manual and scheduled runs use the same settings without runbook parameters.
-- Export continues even if some endpoints fail; failures are recorded in `Export-Errors.csv`.
-- Some Intune resources require Microsoft Graph `beta` endpoints; these are included by design.
-- If you deployed an older Logic App-based version, disable/delete `la-<basename>` after moving to this schedule-based template to avoid duplicate exports.
+- The template publishes the runbook and saves its settings as Automation Variables.
+- Manual and scheduled runs use the same settings without parameters.
+- Some endpoint failures produce `PartialSuccess` and are recorded in `Export-Errors.csv`. A run with no successful endpoints fails.
+- All current Intune endpoints use Microsoft Graph `beta`.

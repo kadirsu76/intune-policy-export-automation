@@ -77,10 +77,15 @@ $StorageContainerName = Resolve-StringSetting -VariableName 'IntuneExport-Storag
 $ExportRootPath = Resolve-StringSetting -VariableName 'IntuneExport-ExportRootPath' -DefaultValue 'daily'
 $MaxRetries = Resolve-IntSetting -VariableName 'IntuneExport-MaxRetries' -DefaultValue 6
 $RetryBaseDelaySeconds = Resolve-IntSetting -VariableName 'IntuneExport-RetryBaseDelaySeconds' -DefaultValue 4
-$EndpointCatalogJson = Resolve-StringSetting -VariableName 'IntuneExport-EndpointCatalogJson' -DefaultValue ''
 
 if ([string]::IsNullOrWhiteSpace($StorageAccountName)) {
     throw "Automation variable 'IntuneExport-StorageAccountName' is missing or empty."
+}
+if ($MaxRetries -lt 1 -or $MaxRetries -gt 10) {
+    throw "Automation variable 'IntuneExport-MaxRetries' must be between 1 and 10."
+}
+if ($RetryBaseDelaySeconds -lt 1 -or $RetryBaseDelaySeconds -gt 60) {
+    throw "Automation variable 'IntuneExport-RetryBaseDelaySeconds' must be between 1 and 60."
 }
 
 function Get-EmbeddedCatalog {
@@ -831,28 +836,48 @@ function Normalize-RelativePath {
     return ($Path -replace "\\", "/").TrimStart("/")
 }
 
+function Invoke-StorageUpload {
+    param(
+        [Parameter(Mandatory = $true)][object]$Context,
+        [Parameter(Mandatory = $true)][string]$Container,
+        [Parameter(Mandatory = $true)][string]$Blob,
+        [Parameter(Mandatory = $true)][string]$FilePath
+    )
+
+    for ($attempt = 1; $attempt -le 4; $attempt++) {
+        try {
+            Set-AzStorageBlobContent -Context $Context -Container $Container -Blob $Blob -File $FilePath -Force -ErrorAction Stop | Out-Null
+            return
+        }
+        catch {
+            if ($attempt -eq 4) { throw }
+            Start-Sleep -Seconds ([math]::Min(60, [int](3 * [math]::Pow(2, $attempt - 1))))
+        }
+    }
+}
+
+function Write-CsvReport {
+    param(
+        [Parameter(Mandatory = $true)][AllowEmptyCollection()][object[]]$Rows,
+        [Parameter(Mandatory = $true)][string[]]$Columns,
+        [Parameter(Mandatory = $true)][string]$Path
+    )
+
+    if ($Rows.Count -gt 0) {
+        $Rows | Select-Object -Property $Columns | Export-Csv -LiteralPath $Path -NoTypeInformation -Encoding utf8
+        return
+    }
+
+    Set-Content -LiteralPath $Path -Value ($Columns -join ',') -Encoding utf8
+}
+
 Write-Log -Message "Runbook started. Authenticating with managed identity."
+Disable-AzContextAutosave -Scope Process | Out-Null
 Connect-AzAccount -Identity -ErrorAction Stop | Out-Null
 $context = Get-AzContext
 
-$catalog = $null
-$catalogPath = ''
-if (-not [string]::IsNullOrWhiteSpace($PSScriptRoot)) {
-    $catalogPath = Join-Path -Path $PSScriptRoot -ChildPath 'endpoint-catalog.json'
-}
-
-if (-not [string]::IsNullOrWhiteSpace($EndpointCatalogJson)) {
-    $catalog = $EndpointCatalogJson | ConvertFrom-Json
-    Write-Log -Message "Endpoint catalog loaded from parameter."
-}
-elseif (-not [string]::IsNullOrWhiteSpace($catalogPath) -and (Test-Path -LiteralPath $catalogPath)) {
-    $catalog = Get-Content -LiteralPath $catalogPath -Raw | ConvertFrom-Json
-    Write-Log -Message "Endpoint catalog loaded from local endpoint-catalog.json."
-}
-else {
-    $catalog = Get-EmbeddedCatalog
-    Write-Log -Message "Endpoint catalog loaded from embedded default catalog."
-}
+$catalog = Get-EmbeddedCatalog
+Write-Log -Message "Endpoint catalog loaded from embedded default catalog."
 
 $runStamp = (Get-Date).ToUniversalTime().ToString("yyyyMMdd-HHmmss")
 $runId = [guid]::NewGuid().ToString("n").Substring(0, 8)
@@ -871,11 +896,18 @@ else {
 $tempRoot = Join-Path $env:TEMP ("intune-policy-export-" + $runId)
 $reportsFolder = Join-Path $tempRoot "Reports"
 New-Item -Path $reportsFolder -ItemType Directory -Force | Out-Null
+trap {
+    if (Test-Path -LiteralPath $tempRoot) {
+        Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    throw $_
+}
 
 $allPolicies = @()
 $summaryRows = @()
 $errorRows = @()
 $assignmentRows = @()
+$successfulEndpointCount = 0
 
 foreach ($endpoint in $catalog) {
     $uri = "https://graph.microsoft.com/$($endpoint.apiVersion)$($endpoint.path)"
@@ -887,6 +919,7 @@ foreach ($endpoint in $catalog) {
 
     try {
         $items = @(Get-GraphCollection -Uri $uri)
+        $successfulEndpointCount++
     }
     catch {
         $endpointErrors++
@@ -930,8 +963,10 @@ foreach ($endpoint in $catalog) {
         $fileName = if ([string]::IsNullOrWhiteSpace($itemId)) { "$safeName.json" } else { "$safeName--$itemId.json" }
         $jsonPath = Join-Path $itemDir $fileName
 
+        $itemWritten = $false
         try {
             $itemPayload | ConvertTo-Json -Depth 100 | Out-File -LiteralPath $jsonPath -Encoding utf8
+            $itemWritten = $true
         }
         catch {
             $endpointErrors++
@@ -993,15 +1028,17 @@ foreach ($endpoint in $catalog) {
             $relativePath = $jsonPath.Substring($tempRoot.Length).TrimStart([System.IO.Path]::DirectorySeparatorChar)
         }
 
-        $allPolicies += [pscustomobject]@{
-            Area            = $endpoint.area
-            Subcategory     = $endpoint.subcategory
-            EndpointId      = $endpoint.id
-            PlatformFolder  = $platform
-            Name            = $itemName
-            Id              = $itemId
-            AssignmentCount = $itemAssignmentCount
-            FilePath        = Normalize-RelativePath -Path $relativePath
+        if ($itemWritten) {
+            $allPolicies += [pscustomobject]@{
+                Area            = $endpoint.area
+                Subcategory     = $endpoint.subcategory
+                EndpointId      = $endpoint.id
+                PlatformFolder  = $platform
+                Name            = $itemName
+                Id              = $itemId
+                AssignmentCount = $itemAssignmentCount
+                FilePath        = Normalize-RelativePath -Path $relativePath
+            }
         }
     }
 
@@ -1022,10 +1059,10 @@ $errorsCsv = Join-Path $reportsFolder "Export-Errors.csv"
 $assignmentsCsv = Join-Path $reportsFolder "Assignments.csv"
 $manifestPath = Join-Path $reportsFolder "manifest.json"
 
-$allPolicies | Sort-Object Area, Subcategory, Name | Export-Csv -Path $allPoliciesCsv -NoTypeInformation -Encoding utf8
-$summaryRows | Sort-Object Area, Subcategory | Export-Csv -Path $summaryCsv -NoTypeInformation -Encoding utf8
-$errorRows | Export-Csv -Path $errorsCsv -NoTypeInformation -Encoding utf8
-$assignmentRows | Sort-Object Area, Subcategory, PolicyName | Export-Csv -Path $assignmentsCsv -NoTypeInformation -Encoding utf8
+Write-CsvReport -Rows @($allPolicies | Sort-Object Area, Subcategory, Name) -Columns @('Area', 'Subcategory', 'EndpointId', 'PlatformFolder', 'Name', 'Id', 'AssignmentCount', 'FilePath') -Path $allPoliciesCsv
+Write-CsvReport -Rows @($summaryRows | Sort-Object Area, Subcategory) -Columns @('EndpointId', 'Area', 'Subcategory', 'ApiVersion', 'ItemCount', 'AssignmentCount', 'ErrorCount') -Path $summaryCsv
+Write-CsvReport -Rows $errorRows -Columns @('TimestampUtc', 'EndpointId', 'Scope', 'ItemId', 'Message') -Path $errorsCsv
+Write-CsvReport -Rows @($assignmentRows | Sort-Object Area, Subcategory, PolicyName) -Columns @('Area', 'Subcategory', 'EndpointId', 'PolicyId', 'PolicyName', 'AssignmentId', 'TargetType', 'GroupId', 'IncludeExclude', 'FilterId', 'FilterType', 'TargetJson') -Path $assignmentsCsv
 
 $tenantIdValue = Get-ObjectValue -Object $context -PropertyName "TenantId"
 if ([string]::IsNullOrWhiteSpace([string]$tenantIdValue)) {
@@ -1048,28 +1085,30 @@ $manifest = [pscustomobject]@{
     totalAssignments      = $assignmentRows.Count
     totalReusableSettings = (@($allPolicies | Where-Object { $_.EndpointId -eq "reusablePolicySettings" })).Count
     totalErrors           = $errorRows.Count
+    successfulEndpoints   = $successfulEndpointCount
     outputRoot            = $relativeRoot
     reportsFolder         = "Reports"
 }
 
-$manifest | ConvertTo-Json -Depth 10 | Out-File -LiteralPath $manifestPath -Encoding utf8
-
 Import-Module Az.Storage -ErrorAction Stop
 
 $storageContext = New-AzStorageContext -StorageAccountName $StorageAccountName -UseConnectedAccount
-$container = Get-AzStorageContainer -Context $storageContext -Name $StorageContainerName -ErrorAction SilentlyContinue
-if ($null -eq $container) {
-    New-AzStorageContainer -Context $storageContext -Name $StorageContainerName -Permission Off | Out-Null
-}
+Get-AzStorageContainer -Context $storageContext -Name $StorageContainerName -ErrorAction Stop | Out-Null
 
 $uploadedCount = 0
-$localFiles = Get-ChildItem -Path $tempRoot -File -Recurse
+$localFiles = Get-ChildItem -Path $tempRoot -File -Recurse | Where-Object { $_.FullName -ne $manifestPath }
 foreach ($file in $localFiles) {
     $relativeLocal = Normalize-RelativePath -Path $file.FullName.Substring($tempRoot.Length)
     $blobName = Normalize-RelativePath -Path "$relativeRoot/$relativeLocal"
-    Set-AzStorageBlobContent -Context $storageContext -Container $StorageContainerName -Blob $blobName -File $file.FullName -Force | Out-Null
+    Invoke-StorageUpload -Context $storageContext -Container $StorageContainerName -Blob $blobName -FilePath $file.FullName
     $uploadedCount++
 }
+
+$manifest | Add-Member -NotePropertyName uploadedFiles -NotePropertyValue $uploadedCount
+$manifest | Add-Member -NotePropertyName status -NotePropertyValue $(if ($successfulEndpointCount -eq 0) { 'FailedCollection' } elseif ($errorRows.Count -gt 0) { 'PartialSuccess' } else { 'Success' })
+$manifest | ConvertTo-Json -Depth 10 | Out-File -LiteralPath $manifestPath -Encoding utf8
+Invoke-StorageUpload -Context $storageContext -Container $StorageContainerName -Blob (Normalize-RelativePath -Path "$relativeRoot/Reports/manifest.json") -FilePath $manifestPath
+$uploadedCount++
 
 $result = [pscustomobject]@{
     status               = if ($errorRows.Count -gt 0) { "PartialSuccess" } else { "Success" }
@@ -1085,6 +1124,10 @@ $result = [pscustomobject]@{
 
 Write-Log -Message "Export completed. Policies: $($allPolicies.Count), Assignments: $($assignmentRows.Count), Errors: $($errorRows.Count), UploadedFiles: $uploadedCount"
 $result | ConvertTo-Json -Depth 6
+
+if ($successfulEndpointCount -eq 0) {
+    throw 'No Graph endpoint completed successfully. Review Export-Errors.csv for details.'
+}
 
 try {
     Remove-Item -Path $tempRoot -Recurse -Force -ErrorAction SilentlyContinue

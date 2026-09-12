@@ -8,6 +8,7 @@ $subscriptionId = (Get-AzContext).Subscription.Id
 $resourceGroupName = $env:RG_NAME
 $automationAccountName = $env:AA_NAME
 $runbookName = $env:RUNBOOK_NAME
+$scheduleName = $env:SCHEDULE_NAME
 $apiVersion = $env:AUTOMATION_API_VERSION
 $runbookContentBase64 = $env:RUNBOOK_CONTENT_B64
 $runbookContent = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($runbookContentBase64))
@@ -29,6 +30,7 @@ $subscriptionId = Assert-RequiredValue -Name 'subscriptionId' -Value $subscripti
 $resourceGroupName = Assert-RequiredValue -Name 'RG_NAME' -Value $resourceGroupName
 $automationAccountName = Assert-RequiredValue -Name 'AA_NAME' -Value $automationAccountName
 $runbookName = Assert-RequiredValue -Name 'RUNBOOK_NAME' -Value $runbookName
+$scheduleName = Assert-RequiredValue -Name 'SCHEDULE_NAME' -Value $scheduleName
 $apiVersion = Assert-RequiredValue -Name 'AUTOMATION_API_VERSION' -Value $apiVersion
 
 if ([string]::IsNullOrWhiteSpace($runbookContent)) {
@@ -37,6 +39,9 @@ if ([string]::IsNullOrWhiteSpace($runbookContent)) {
 
 $baseUrl = [System.UriBuilder]::new('https://management.azure.com').Uri.AbsoluteUri.TrimEnd('/') +
     "/subscriptions/$([Uri]::EscapeDataString($subscriptionId))/resourceGroups/$([Uri]::EscapeDataString($resourceGroupName))/providers/Microsoft.Automation/automationAccounts/$([Uri]::EscapeDataString($automationAccountName))/runbooks/$([Uri]::EscapeDataString($runbookName))"
+$automationBaseUrl = $baseUrl.Substring(0, $baseUrl.LastIndexOf('/runbooks/'))
+$scheduleUrl = "$automationBaseUrl/schedules/$([Uri]::EscapeDataString($scheduleName))?api-version=$apiVersion"
+$jobSchedulesUrl = "$automationBaseUrl/jobSchedules?api-version=$apiVersion"
 
 function Get-PlainTextToken {
     param(
@@ -108,6 +113,26 @@ for ($i = 0; $i -lt 60; $i++) {
 
 if (-not $published) {
     throw 'Runbook publish did not reach Published state in allotted time.'
+}
+
+try {
+    Invoke-RestMethod -Method Get -Uri $scheduleUrl -Headers @{ Authorization = "Bearer $token" } | Out-Null
+}
+catch {
+    $startTime = (Get-Date).ToUniversalTime().Date.AddDays(1).ToString('yyyy-MM-ddTHH:mm:ssZ')
+    $scheduleBody = @{ properties = @{ description = 'Daily Intune policy export at 00:00 UTC'; startTime = $startTime; frequency = 'Day'; interval = 1; timeZone = 'Etc/UTC' } } | ConvertTo-Json -Compress
+    Invoke-RestMethod -Method Put -Uri $scheduleUrl -Headers @{ Authorization = "Bearer $token"; 'Content-Type' = 'application/json' } -Body $scheduleBody | Out-Null
+}
+
+$jobSchedules = Invoke-RestMethod -Method Get -Uri $jobSchedulesUrl -Headers @{ Authorization = "Bearer $token" }
+$existingLink = @($jobSchedules.value | Where-Object {
+    $_.properties.runbook.name -eq $runbookName -and $_.properties.schedule.name -eq $scheduleName
+} | Select-Object -First 1)
+
+if ($existingLink.Count -eq 0) {
+    $jobScheduleUrl = "$automationBaseUrl/jobSchedules/$([guid]::NewGuid())?api-version=$apiVersion"
+    $jobScheduleBody = @{ properties = @{ runbook = @{ name = $runbookName }; schedule = @{ name = $scheduleName } } } | ConvertTo-Json -Depth 5 -Compress
+    Invoke-RestMethod -Method Put -Uri $jobScheduleUrl -Headers @{ Authorization = "Bearer $token"; 'Content-Type' = 'application/json' } -Body $jobScheduleBody | Out-Null
 }
 
 $DeploymentScriptOutputs = @{

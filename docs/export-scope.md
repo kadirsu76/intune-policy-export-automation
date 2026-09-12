@@ -1,12 +1,10 @@
 # Export Scope
 
-## Current endpoint catalog
+## Coverage
 
-The endpoint catalog file is:
+The deployed runbook contains the 16 supported endpoint definitions. `runbook/endpoint-catalog.json` is the readable reference copy.
 
-- `runbook/endpoint-catalog.json`
-
-It defines endpoint metadata used by runbook:
+Each definition includes:
 
 - Area
 - Subcategory
@@ -46,3 +44,4 @@ Runbook writes policies under platform roots:
 - `Android`
 - `MultiPlatform`
 - `Unknown`
+- `Global`

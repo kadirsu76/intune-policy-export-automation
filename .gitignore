@@ -1,0 +1,6 @@
+.DS_Store
+*.log
+exports/
+output/
+local-with-user/
+Intune-Export/

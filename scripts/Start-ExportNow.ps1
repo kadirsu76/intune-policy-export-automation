@@ -13,11 +13,16 @@ param(
 
     [Parameter(Mandatory = $false)]
     [ValidateRange(5, 300)]
-    [int]$PollSeconds = 15
+    [int]$PollSeconds = 15,
+
+    [Parameter(Mandatory = $false)]
+    [ValidateRange(1, 180)]
+    [int]$TimeoutMinutes = 170
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+$PSNativeCommandUseErrorActionPreference = $true
 
 function Assert-Command {
     param([Parameter(Mandatory = $true)][string]$Name)
@@ -27,21 +32,32 @@ function Assert-Command {
     }
 }
 
+function Invoke-Az {
+    param([Parameter(Mandatory = $true)][scriptblock]$Command)
+
+    $output = & $Command
+    if ($LASTEXITCODE -ne 0) {
+        throw "Azure CLI command failed with exit code $LASTEXITCODE."
+    }
+
+    return $output
+}
+
 Assert-Command -Name 'az'
 
 try {
-    az account show --output none | Out-Null
+    Invoke-Az { az account show --output none } | Out-Null
 }
 catch {
     Write-Host 'No active Azure CLI login. Opening az login...'
-    az login --output none | Out-Null
+    Invoke-Az { az login --output none } | Out-Null
 }
 
 if (-not [string]::IsNullOrWhiteSpace($SubscriptionId)) {
-    az account set --subscription $SubscriptionId
+    Invoke-Az { az account set --subscription $SubscriptionId } | Out-Null
 }
 
-$subscriptionIdValue = az account show --query id --output tsv
+$subscriptionIdValue = Invoke-Az { az account show --query id --output tsv }
 if ([string]::IsNullOrWhiteSpace($subscriptionIdValue)) {
     throw 'Unable to resolve current Azure subscription from az account show.'
 }
@@ -53,7 +69,7 @@ $jobName = [guid]::NewGuid().ToString()
 $jobUrl = "https://management.azure.com/subscriptions/${subscriptionIdValue}/resourceGroups/${ResourceGroupName}/providers/Microsoft.Automation/automationAccounts/${automationAccountName}/jobs/${jobName}?api-version=2024-10-23"
 $jobBody = '{"properties":{"runbook":{"name":"' + $runbookName + '"}}}'
 
-$raw = az rest --method put --url $jobUrl --headers 'Content-Type=application/json' --body $jobBody --output json
+$raw = Invoke-Az { az rest --method put --url $jobUrl --headers 'Content-Type=application/json' --body $jobBody --output json }
 $null = $raw | ConvertFrom-Json
 
 Write-Host 'Export job started.'
@@ -69,10 +85,15 @@ if (-not $Wait.IsPresent) {
 
 $terminalStatuses = @('Completed', 'Failed', 'Stopped', 'Suspended', 'Blocked')
 $lastStatus = ''
+$deadline = (Get-Date).ToUniversalTime().AddMinutes($TimeoutMinutes)
 
 while ($true) {
+    if ((Get-Date).ToUniversalTime() -ge $deadline) {
+        throw "Timed out waiting after $TimeoutMinutes minutes. Job name: $jobName"
+    }
+
     Start-Sleep -Seconds $PollSeconds
-    $raw = az rest --method get --url $jobUrl --output json
+    $raw = Invoke-Az { az rest --method get --url $jobUrl --output json }
     $job = $raw | ConvertFrom-Json
     $status = [string]$job.properties.status
 

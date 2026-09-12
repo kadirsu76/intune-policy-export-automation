@@ -27,13 +27,6 @@
       "metadata": {
         "description": "Retention in days for lifecycle cleanup"
       }
-    },
-    "scheduleStartTime": {
-      "type": "string",
-      "defaultValue": "[dateTimeAdd(utcNow(), 'P2D', 'yyyy-MM-ddT00:00:00Z')]",
-      "metadata": {
-        "description": "Daily schedule start time in UTC (must be in the future)"
-      }
     }
   },
   "resources": [
@@ -55,9 +48,6 @@
           },
           "retentionDays": {
             "value": "[parameters('retentionDays')]"
-          },
-          "scheduleStartTime": {
-            "value": "[parameters('scheduleStartTime')]"
           }
         }
       }
@@ -95,10 +85,6 @@
     "scheduleName": {
       "type": "string",
       "value": "[reference('intunePolicyExportMain').outputs.scheduleNameOut.value]"
-    },
-    "jobScheduleResourceId": {
-      "type": "string",
-      "value": "[reference('intunePolicyExportMain').outputs.jobScheduleResourceId.value]"
     }
   }
 }

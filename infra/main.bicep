@@ -17,9 +17,6 @@ param exportRootPath string = 'daily'
 @maxValue(3650)
 param retentionDays int = 365
 
-@description('Daily schedule start time in UTC (must be in the future)')
-param scheduleStartTime string = dateTimeAdd(utcNow(), 'P2D', 'yyyy-MM-ddT00:00:00Z')
-
 var storageBlobDataContributorRoleId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')
 var automationContributorRoleId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'f353d9bd-d4a6-484e-a77a-8050b599b867')
 var runbookContentBase64 = base64(loadTextContent('../runbook/Export-IntuneConfiguration.ps1'))
@@ -31,7 +28,6 @@ var storageContainerName = '${normalizedBaseName}-exports'
 var automationAccountName = 'aa-${normalizedBaseName}'
 var runbookName = 'rb-${normalizedBaseName}-export'
 var scheduleName = 'sch-${normalizedBaseName}-daily'
-var jobScheduleName = guid(automationAccount.id, runbook.name, scheduleName)
 var deploymentIdentityName = 'mi-${normalizedBaseName}-ds'
 var publishRunbookScriptName = 'ds-${normalizedBaseName}-publish-runbook'
 
@@ -90,7 +86,7 @@ resource storageLifecycle 'Microsoft.Storage/storageAccounts/managementPolicies@
                 'blockBlob'
               ]
               prefixMatch: [
-                exportRootPath
+                '${storageContainerName}/${exportRootPath}/'
               ]
             }
           }
@@ -218,6 +214,10 @@ resource publishRunbookScript 'Microsoft.Resources/deploymentScripts@2023-08-01'
         value: runbook.name
       }
       {
+        name: 'SCHEDULE_NAME'
+        value: scheduleName
+      }
+      {
         name: 'AUTOMATION_API_VERSION'
         value: '2024-10-23'
       }
@@ -243,40 +243,6 @@ resource storageRoleForAutomation 'Microsoft.Authorization/roleAssignments@2022-
   }
 }
 
-resource dailySchedule 'Microsoft.Automation/automationAccounts/schedules@2024-10-23' = {
-  name: scheduleName
-  parent: automationAccount
-  properties: {
-    description: 'Daily Intune policy export at 00:00 UTC'
-    startTime: scheduleStartTime
-    frequency: 'Day'
-    interval: 1
-    timeZone: 'Etc/UTC'
-  }
-}
-
-resource dailyJobSchedule 'Microsoft.Automation/automationAccounts/jobSchedules@2024-10-23' = {
-  name: jobScheduleName
-  parent: automationAccount
-  properties: {
-    schedule: {
-      name: dailySchedule.name
-    }
-    runbook: {
-      name: runbook.name
-    }
-  }
-  dependsOn: [
-    publishRunbookScript
-    storageRoleForAutomation
-    storageAccountNameVariable
-    storageContainerNameVariable
-    exportRootPathVariable
-    maxRetriesVariable
-    retryBaseDelaySecondsVariable
-  ]
-}
-
 output storageAccountResourceId string = storageAccount.id
 output storageAccountNameOut string = storageAccount.name
 output storageContainer string = storageContainerName
@@ -284,6 +250,5 @@ output automationAccountResourceId string = automationAccount.id
 output automationAccountNameOut string = automationAccount.name
 output automationPrincipalId string = automationAccount.identity.principalId
 output runbookNameOut string = runbook.name
-output scheduleResourceId string = dailySchedule.id
-output scheduleNameOut string = dailySchedule.name
-output jobScheduleResourceId string = dailyJobSchedule.id
+output scheduleResourceId string = resourceId('Microsoft.Automation/automationAccounts/schedules', automationAccount.name, scheduleName)
+output scheduleNameOut string = scheduleName

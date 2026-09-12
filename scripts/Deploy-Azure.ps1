@@ -12,14 +12,12 @@ param(
     [int]$RetentionDays = 365,
 
     [Parameter(Mandatory = $false)]
-    [string]$ExportRootPath = "daily",
-
-    [Parameter(Mandatory = $false)]
-    [string]$ScheduleStartTime
+    [string]$ExportRootPath = "daily"
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+$PSNativeCommandUseErrorActionPreference = $true
 
 function Assert-Command {
     param([string]$Name)
@@ -56,10 +54,6 @@ $parameters = @(
     "retentionDays=$RetentionDays"
     "exportRootPath=$ExportRootPath"
 )
-
-if (-not [string]::IsNullOrWhiteSpace($ScheduleStartTime)) {
-    $parameters += "scheduleStartTime=$ScheduleStartTime"
-}
 
 Write-Host "Deploying infrastructure from $templateFile"
 az deployment group create `
