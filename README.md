@@ -69,7 +69,7 @@ Resource names are derived automatically from `BaseName`:
 - Runbook: `rb-<basename>-export`
 - Schedule: `sch-<basename>-daily`
 - Storage Container: `<basename>-exports`
-- Storage Account: `sa<basename><deterministic-suffix>` and returned as deployment output
+- Storage Account: auto-generated (`st<uniqueString>`) and returned as deployment output
 
 Optional pre-check:
 
