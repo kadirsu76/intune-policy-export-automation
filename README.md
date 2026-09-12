@@ -100,6 +100,20 @@ pwsh ./scripts/Grant-Permissions.ps1 -Mi <automation-mi-object-id>
 - Confirm new blob folder under `daily/<yyyy>/<MM>/<dd>/...`
 - Confirm schedule exists: Automation Account -> Schedules -> `sch-<basename>-daily`
 
+## Trigger export now (one command)
+
+You can trigger an on-demand export immediately from CLI:
+
+```powershell
+pwsh ./scripts/Start-ExportNow.ps1 -ResourceGroupName rg-intune-export -BaseName intunex
+```
+
+Optional flags:
+
+- `-SubscriptionId <guid>`: switch subscription before trigger
+- `-Wait`: wait for terminal status (`Completed`/`Failed`) in console
+- `-PollSeconds 15`: polling interval when `-Wait` is used
+
 ## Deploy to Azure button
 
 Button (will work after repo is public, or if this file is exposed from a public deploy repo):
