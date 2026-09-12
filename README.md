@@ -69,7 +69,7 @@ Resource names are derived automatically from `BaseName`:
 - Runbook: `rb-<basename>-export`
 - Schedule: `sch-<basename>-daily`
 - Storage Container: `<basename>-exports`
-- Storage Account: auto-generated (`st<uniqueString>`) and returned as deployment output
+- Storage Account: `sa<basename><deterministic-suffix>` and returned as deployment output
 
 Optional pre-check:
 
@@ -93,7 +93,7 @@ pwsh ./scripts/Grant-Permissions.ps1 -Mi <automation-mi-object-id>
 
 3. Wait a few minutes for managed identity token cache refresh.
 
-4. Validation:
+4. Validation. The runbook has no manual parameters; storage settings are read from Automation Variables created by the template:
 
 - Runbook manual start once: Automation Account -> Runbooks -> `rb-<basename>-export` -> Start
 - Confirm job status is `Completed`
@@ -138,7 +138,7 @@ Azure RBAC set by template:
 ## Notes
 
 - Template creates and publishes runbook content during deployment using a deployment script.
-- Template links runbook to an Automation schedule (`sch-<basename>-daily`) and passes `StorageAccountName`, `StorageContainerName`, `ExportRootPath` parameters.
+- Template stores `StorageAccountName`, `StorageContainerName`, and `ExportRootPath` in Automation Variables; manual and scheduled runs use the same settings without runbook parameters.
 - Export continues even if some endpoints fail; failures are recorded in `Export-Errors.csv`.
 - Some Intune resources require Microsoft Graph `beta` endpoints; these are included by design.
 - If you deployed an older Logic App-based version, disable/delete `la-<basename>` after moving to this schedule-based template to avoid duplicate exports.

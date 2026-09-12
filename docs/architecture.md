@@ -6,7 +6,7 @@
    - System-assigned managed identity
    - PowerShell 7.2 runbook: `Export-IntuneConfiguration`
    - Native Automation schedule: `sch-<basename>-daily` (daily 00:00 UTC)
-   - Job schedule association passes runbook parameters
+   - Automation Variables hold export settings, so manual starts need no parameters
    - Export logic includes pagination, retry, error isolation, and reporting
 
 2. **Azure Storage Account (Blob)**

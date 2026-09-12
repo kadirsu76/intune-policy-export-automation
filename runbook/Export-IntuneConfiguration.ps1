@@ -1,26 +1,66 @@
-param(
-    [Parameter(Mandatory = $true)]
-    [string]$StorageAccountName,
-
-    [Parameter(Mandatory = $false)]
-    [string]$StorageContainerName = "intune-exports",
-
-    [Parameter(Mandatory = $false)]
-    [string]$ExportRootPath = "daily",
-
-    [Parameter(Mandatory = $false)]
-    [int]$MaxRetries = 6,
-
-    [Parameter(Mandatory = $false)]
-    [int]$RetryBaseDelaySeconds = 4,
-
-    [Parameter(Mandatory = $false)]
-    [string]$EndpointCatalogJson = ""
-)
+param()
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
+
+function Get-AutomationVariableValue {
+    param([Parameter(Mandatory = $true)][string]$Name)
+
+    if (-not (Get-Command -Name Get-AutomationVariable -ErrorAction SilentlyContinue)) {
+        return $null
+    }
+
+    try {
+        return Get-AutomationVariable -Name $Name -ErrorAction Stop
+    }
+    catch {
+        return $null
+    }
+}
+
+function Resolve-StringSetting {
+    param(
+        [Parameter(Mandatory = $true)][string]$VariableName,
+        [Parameter(Mandatory = $true)][AllowEmptyString()][string]$DefaultValue
+    )
+
+    $value = Get-AutomationVariableValue -Name $VariableName
+    if ($null -eq $value) {
+        return $DefaultValue
+    }
+
+    $text = [string]$value
+    if ([string]::IsNullOrWhiteSpace($text)) {
+        return $DefaultValue
+    }
+
+    return $text
+}
+
+function Resolve-IntSetting {
+    param(
+        [Parameter(Mandatory = $true)][string]$VariableName,
+        [Parameter(Mandatory = $true)][int]$DefaultValue
+    )
+
+    $value = Get-AutomationVariableValue -Name $VariableName
+    if ($null -eq $value) {
+        return $DefaultValue
+    }
+
+    $text = [string]$value
+    if ([string]::IsNullOrWhiteSpace($text)) {
+        return $DefaultValue
+    }
+
+    $parsed = 0
+    if ([int]::TryParse($text, [ref]$parsed)) {
+        return $parsed
+    }
+
+    return $DefaultValue
+}
 
 function Write-Log {
     param(
@@ -30,6 +70,17 @@ function Write-Log {
 
     $stamp = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
     Write-Host "[$stamp][$Level] $Message"
+}
+
+$StorageAccountName = Resolve-StringSetting -VariableName 'IntuneExport-StorageAccountName' -DefaultValue ''
+$StorageContainerName = Resolve-StringSetting -VariableName 'IntuneExport-StorageContainerName' -DefaultValue 'intune-exports'
+$ExportRootPath = Resolve-StringSetting -VariableName 'IntuneExport-ExportRootPath' -DefaultValue 'daily'
+$MaxRetries = Resolve-IntSetting -VariableName 'IntuneExport-MaxRetries' -DefaultValue 6
+$RetryBaseDelaySeconds = Resolve-IntSetting -VariableName 'IntuneExport-RetryBaseDelaySeconds' -DefaultValue 4
+$EndpointCatalogJson = Resolve-StringSetting -VariableName 'IntuneExport-EndpointCatalogJson' -DefaultValue ''
+
+if ([string]::IsNullOrWhiteSpace($StorageAccountName)) {
+    throw "Automation variable 'IntuneExport-StorageAccountName' is missing or empty."
 }
 
 function Get-EmbeddedCatalog {

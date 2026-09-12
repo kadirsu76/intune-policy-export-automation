@@ -26,7 +26,8 @@ var runbookContentBase64 = base64(loadTextContent('../runbook/Export-IntuneConfi
 var publishRunbookScriptContent = loadTextContent('publish-runbook.ps1')
 var publishRunbookScriptContentHash = base64(publishRunbookScriptContent)
 var normalizedBaseName = toLower(replace(baseName, '_', '-'))
-var storageAccountName = 'st${uniqueString(resourceGroup().id, normalizedBaseName)}'
+var storageAccountPrefix = take(replace(normalizedBaseName, '-', ''), 9)
+var storageAccountName = 'sa${storageAccountPrefix}${uniqueString(resourceGroup().id, normalizedBaseName)}'
 var storageContainerName = '${normalizedBaseName}-exports'
 var automationAccountName = 'aa-${normalizedBaseName}'
 var runbookName = 'rb-${normalizedBaseName}-export'
@@ -128,6 +129,56 @@ resource runbook 'Microsoft.Automation/automationAccounts/runbooks@2024-10-23' =
   }
 }
 
+resource storageAccountNameVariable 'Microsoft.Automation/automationAccounts/variables@2024-10-23' = {
+  name: 'IntuneExport-StorageAccountName'
+  parent: automationAccount
+  properties: {
+    description: 'Storage account used for Intune policy exports.'
+    isEncrypted: false
+    value: '"${storageAccount.name}"'
+  }
+}
+
+resource storageContainerNameVariable 'Microsoft.Automation/automationAccounts/variables@2024-10-23' = {
+  name: 'IntuneExport-StorageContainerName'
+  parent: automationAccount
+  properties: {
+    description: 'Blob container used for Intune policy exports.'
+    isEncrypted: false
+    value: '"${storageContainerName}"'
+  }
+}
+
+resource exportRootPathVariable 'Microsoft.Automation/automationAccounts/variables@2024-10-23' = {
+  name: 'IntuneExport-ExportRootPath'
+  parent: automationAccount
+  properties: {
+    description: 'Blob root path used for Intune policy exports.'
+    isEncrypted: false
+    value: '"${exportRootPath}"'
+  }
+}
+
+resource maxRetriesVariable 'Microsoft.Automation/automationAccounts/variables@2024-10-23' = {
+  name: 'IntuneExport-MaxRetries'
+  parent: automationAccount
+  properties: {
+    description: 'Maximum Graph retry attempts.'
+    isEncrypted: false
+    value: '6'
+  }
+}
+
+resource retryBaseDelaySecondsVariable 'Microsoft.Automation/automationAccounts/variables@2024-10-23' = {
+  name: 'IntuneExport-RetryBaseDelaySeconds'
+  parent: automationAccount
+  properties: {
+    description: 'Initial delay in seconds for Graph retry backoff.'
+    isEncrypted: false
+    value: '4'
+  }
+}
+
 resource automationRoleForDeploymentScript 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(automationAccount.id, deploymentIdentity.name, 'automationContributor')
   scope: automationAccount
@@ -215,15 +266,15 @@ resource dailyJobSchedule 'Microsoft.Automation/automationAccounts/jobSchedules@
     runbook: {
       name: runbook.name
     }
-    parameters: {
-      StorageAccountName: storageAccount.name
-      StorageContainerName: storageContainerName
-      ExportRootPath: exportRootPath
-    }
   }
   dependsOn: [
     publishRunbookScript
     storageRoleForAutomation
+    storageAccountNameVariable
+    storageContainerNameVariable
+    exportRootPathVariable
+    maxRetriesVariable
+    retryBaseDelaySecondsVariable
   ]
 }
 
