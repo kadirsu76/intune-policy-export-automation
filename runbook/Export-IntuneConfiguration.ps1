@@ -785,12 +785,17 @@ Connect-AzAccount -Identity -ErrorAction Stop | Out-Null
 $context = Get-AzContext
 
 $catalog = $null
+$catalogPath = ''
+if (-not [string]::IsNullOrWhiteSpace($PSScriptRoot)) {
+    $catalogPath = Join-Path -Path $PSScriptRoot -ChildPath 'endpoint-catalog.json'
+}
+
 if (-not [string]::IsNullOrWhiteSpace($EndpointCatalogJson)) {
     $catalog = $EndpointCatalogJson | ConvertFrom-Json
     Write-Log -Message "Endpoint catalog loaded from parameter."
 }
-elseif (Test-Path -Path (Join-Path $PSScriptRoot "endpoint-catalog.json")) {
-    $catalog = Get-Content -Path (Join-Path $PSScriptRoot "endpoint-catalog.json") -Raw | ConvertFrom-Json
+elseif (-not [string]::IsNullOrWhiteSpace($catalogPath) -and (Test-Path -LiteralPath $catalogPath)) {
+    $catalog = Get-Content -LiteralPath $catalogPath -Raw | ConvertFrom-Json
     Write-Log -Message "Endpoint catalog loaded from local endpoint-catalog.json."
 }
 else {
